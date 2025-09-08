@@ -1,0 +1,926 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-g">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Token Cost Estimator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            background-color: #111827; /* Even Darker Gray */
+            color: #e5e7eb;
+            font-family: 'Inter', sans-serif;
+        }
+        .bg-card {
+            background-color: #1f2937;
+        }
+        .border-card {
+            border-color: #374151;
+        }
+        input, select {
+            background-color: #374151;
+            border-color: #4b5563;
+            color: #e5e7eb;
+        }
+        .btn {
+            background-color: #3b82f6;
+            color: white;
+            font-weight: 600;
+            padding: 0.625rem 1.25rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.2s;
+            white-space: nowrap;
+        }
+        .btn:hover {
+            background-color: #2563eb;
+        }
+        .btn-danger {
+            background-color: #ef4444;
+        }
+        .btn-danger:hover {
+            background-color: #dc2626;
+        }
+        .card {
+            background-color: #1f2937;
+            border-radius: 0.75rem;
+            border: 1px solid #374151;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+        /* Custom checkbox style */
+        input[type="checkbox"] {
+            appearance: none;
+            background-color: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 0.25rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            cursor: pointer;
+            position: relative;
+            top: 0.25rem;
+        }
+        input[type="checkbox"]:checked {
+            background-color: #3b82f6;
+            border-color: #3b82f6;
+        }
+        input[type="checkbox"]:checked::after {
+            content: '✔';
+            position: absolute;
+            color: white;
+            font-size: 0.8rem;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+    </style>
+    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+</head>
+<body class="bg-gray-900 p-4 sm:p-6 lg:p-8">
+    <div class="max-w-screen-xl mx-auto">
+        <div class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-white">Genesys AI Token Calculator</h1>
+        </div>
+
+        <div class="flex flex-col gap-8">
+            <!-- Results Section -->
+            <div class="card p-6">
+                 <h2 class="text-2xl font-semibold mb-4 text-white">Results</h2>
+                 <div class="flex justify-center items-center mb-4">
+                    <label for="token-distribution-select" class="mr-2 text-sm font-medium">Token Distribution:</label>
+                    <select id="token-distribution-select" class="rounded-md shadow-sm">
+                        <option value="selected">Selected</option>
+                        <option value="lowest_cost">Lowest Cost</option>
+                    </select>
+                </div>
+                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-center">
+                    <div class="h-[450px]">
+                        <canvas id="tokenDistributionChart"></canvas>
+                    </div>
+                    <div id="results-container" class="space-y-6"></div>
+                 </div>
+            </div>
+
+            <!-- Voice Mix & Comparison Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div class="lg:col-span-3 card p-6">
+                    <h2 class="text-2xl font-semibold mb-4 text-white">Voice Mix</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="border-b border-card">
+                                <tr>
+                                    <th class="px-2 py-3"></th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Call Length</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Calls/Month</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">% Auto</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Selected AI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="call-mix-table">
+                            </tbody>
+                        </table>
+                    </div>
+                     <div class="mt-4 flex space-x-4">
+                        <button id="add-row-btn" class="btn">Add New Voice Interaction</button>
+                        <button id="delete-selected-btn" class="btn btn-danger">Delete Selected</button>
+                     </div>
+                </div>
+                
+                <div class="lg:col-span-1 card p-6">
+                    <h2 class="text-2xl font-semibold mb-4 text-white">Voice AI Cost Comparison</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="compare-select" class="block text-sm font-medium">Select Interaction:</label>
+                            <select id="compare-select" class="mt-1 block w-full rounded-md shadow-sm"></select>
+                        </div>
+                        <div class="h-80">
+                           <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+             <!-- Digital Mix Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <div class="lg:col-span-3 card p-6">
+                    <h2 class="text-2xl font-semibold mb-4 text-white">Digital Mix</h2>
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full">
+                            <thead class="border-b border-card">
+                                <tr>
+                                    <th class="px-2 py-3"></th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Avg # Turns</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Interactions/Month</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">% Auto</th>
+                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Selected AI</th>
+                                </tr>
+                            </thead>
+                            <tbody id="digital-mix-table">
+                            </tbody>
+                        </table>
+                    </div>
+                     <div class="mt-4 flex space-x-4">
+                        <button id="add-digital-row-btn" class="btn">Add New Digital Interaction</button>
+                        <button id="delete-selected-digital-btn" class="btn btn-danger">Delete Selected</button>
+                     </div>
+                </div>
+                 <div class="lg:col-span-1 card p-6">
+                    <h2 class="text-2xl font-semibold mb-4 text-white">Digital AI Cost Comparison</h2>
+                    <div class="space-y-4">
+                        <div>
+                            <label for="digital-compare-select" class="block text-sm font-medium">Select Interaction:</label>
+                            <select id="digital-compare-select" class="mt-1 block w-full rounded-md shadow-sm"></select>
+                        </div>
+                        <div class="h-80">
+                           <canvas id="digitalComparisonChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration Section -->
+            <div class="card p-6">
+                <h2 class="text-2xl font-semibold mb-4 text-white">Configuration</h2>
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
+                    <div id="inputs-container" class="md:col-span-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-4"></div>
+                    
+                    <div class="md:col-span-1">
+                        <h3 class="text-lg font-semibold mb-2 text-white">Co-Pilot</h3>
+                        <div class="space-y-4">
+                            <div class="flex items-center space-x-6">
+                                <div>
+                                    <input type="checkbox" id="copilot-named">
+                                    <label for="copilot-named" class="ml-2">Named</label>
+                                </div>
+                                <div>
+                                    <input type="checkbox" id="copilot-concurrent">
+                                    <label for="copilot-concurrent" class="ml-2">Concurrent</label>
+                                </div>
+                            </div>
+                             <div>
+                                <label for="copilot-users" class="block text-sm font-medium mb-1">Number of Users:</label>
+                                <input type="number" id="copilot-users" value="0" class="w-full p-2 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-1">
+                         <div class="space-y-4">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="predictive-engagement">
+                                <label for="predictive-engagement" class="ml-2 font-semibold text-lg">Predictive Engagement</label>
+                            </div>
+                             <div>
+                                <label for="predictive-events" class="block text-sm font-medium mb-1">Number of Events:</label>
+                                <input type="number" id="predictive-events" value="0" class="w-full p-2 rounded-md">
+                            </div>
+                        </div>
+                        <div class="space-y-4 mt-6">
+                            <div class="flex items-center">
+                                <input type="checkbox" id="routing-enable">
+                                <label for="routing-enable" class="ml-2 font-semibold text-lg">Predictive Routing</label>
+                            </div>
+                             <div>
+                                <label for="routing-routes" class="block text-sm font-medium mb-1">Number of Routes:</label>
+                                <input type="number" id="routing-routes" value="0" class="w-full p-2 rounded-md">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="md:col-span-1">
+                        <h3 class="text-lg font-semibold mb-2 text-white">Supervisor Copilot</h3>
+                        <div id="supervisor-copilot-container" class="space-y-2"></div>
+                        <h3 class="text-lg font-semibold mt-6 mb-2 text-white">Virtual Supervisor Copilot</h3>
+                        <div id="virtual-supervisor-copilot-container" class="space-y-2"></div>
+                    </div>
+                </div>
+                <div class="mt-8 pt-6 border-t border-card flex justify-between items-center">
+                     <button id="reset-all-btn" class="btn btn-danger">Reset All</button>
+                     <button id="user-guide-btn" class="btn">User Guide</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- DATA INITIALIZATION ---
+        const TOKEN_LENGTH_MINUTES = 17;
+        const DEFAULT_AUTOMATION_PERCENT = 50;
+        const initialInputs = [
+            { setting: "Token Price", value: 1 },
+            { setting: "AI Guide Creation", value: 0 },
+        ];
+
+        const initialCallMix = [];
+        const initialDigitalMix = [];
+
+        // --- DOM ELEMENT REFERENCES ---
+        const inputsContainer = document.getElementById('inputs-container');
+        const callMixTable = document.getElementById('call-mix-table');
+        const digitalMixTable = document.getElementById('digital-mix-table');
+        const resultsContainer = document.getElementById('results-container');
+        const addRowBtn = document.getElementById('add-row-btn');
+        const deleteSelectedBtn = document.getElementById('delete-selected-btn');
+        const addDigitalRowBtn = document.getElementById('add-digital-row-btn');
+        const deleteSelectedDigitalBtn = document.getElementById('delete-selected-digital-btn');
+        const resetAllBtn = document.getElementById('reset-all-btn');
+        const compareSelect = document.getElementById('compare-select');
+        const digitalCompareSelect = document.getElementById('digital-compare-select');
+        const tokenDistributionChartCtx = document.getElementById('tokenDistributionChart').getContext('2d');
+        const comparisonChartCtx = document.getElementById('comparisonChart').getContext('2d');
+        const digitalComparisonChartCtx = document.getElementById('digitalComparisonChart').getContext('2d');
+        const tokenDistributionSelect = document.getElementById('token-distribution-select');
+        const copilotNamed = document.getElementById('copilot-named');
+        const copilotConcurrent = document.getElementById('copilot-concurrent');
+        const copilotUsers = document.getElementById('copilot-users');
+        const predictiveEngagement = document.getElementById('predictive-engagement');
+        const predictiveEvents = document.getElementById('predictive-events');
+        const routingEnable = document.getElementById('routing-enable');
+        const routingRoutes = document.getElementById('routing-routes');
+        const supervisorCopilotContainer = document.getElementById('supervisor-copilot-container');
+        const virtualSupervisorCopilotContainer = document.getElementById('virtual-supervisor-copilot-container');
+        const userGuideBtn = document.getElementById('user-guide-btn');
+
+        // --- CHART INSTANCES ---
+        let tokenDistributionChart;
+        let comparisonChart;
+        let digitalComparisonChart;
+        let resetTimeout;
+
+        // --- STATE MANAGEMENT ---
+        let inputs = {};
+        let callMix = [];
+        let digitalMix = [];
+        let distributionData = {};
+        let insights = {};
+
+        // --- UTILITY FUNCTIONS ---
+        const parseTimeToSeconds = (timeStr) => {
+            const parts = timeStr.split(':');
+            if (parts.length !== 2) return 0;
+            return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+        };
+
+        const formatCurrency = (value) => {
+            return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(value);
+        };
+        
+        const formatNumber = (value) => {
+            return new Intl.NumberFormat('en-US').format(value);
+        }
+
+        // --- CORE CALCULATION LOGIC ---
+        function calculateAll() {
+            let selectedMinutes = 0, selectedSessionsVA = 0, selectedSessionsAI = 0;
+            let lowestCostMinutes = 0, lowestCostSessionsVA = 0, lowestCostSessionsAI = 0;
+            let totalAutomatedCalls = 0;
+            const tokenPrice = inputs["Token Price"] || 0;
+
+            callMix.forEach(row => {
+                if (row.include !== 1) return;
+
+                const callLengthSeconds = parseTimeToSeconds(row.callLength);
+                const automatedCalls = row.callsThisMonth * (row.percentAutomated / 100);
+                totalAutomatedCalls += automatedCalls;
+                
+                const billedMinutesPerCall = Math.ceil(callLengthSeconds / 15) * 0.25;
+                const automatedBilledMinutes = automatedCalls * billedMinutesPerCall;
+                const automatedSessions = automatedCalls;
+
+                if (row.selectedAIType === 'Voice Bot') selectedMinutes += automatedBilledMinutes;
+                else if (row.selectedAIType === 'Virtual Agent') selectedSessionsVA += automatedSessions;
+                else selectedSessionsAI += automatedSessions;
+
+                const costForVoiceBot = (TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(automatedBilledMinutes / TOKEN_LENGTH_MINUTES) : Infinity) * tokenPrice;
+                const costForVirtualAgent = Math.ceil(automatedSessions / 2) * tokenPrice;
+                const costForAgenticAI = automatedSessions * tokenPrice;
+                
+                if (callLengthSeconds >= 510) {
+                    lowestCostSessionsVA += automatedSessions;
+                } else {
+                    const minCost = Math.min(costForVoiceBot, costForVirtualAgent, costForAgenticAI);
+                    if (minCost === costForVoiceBot) lowestCostMinutes += automatedBilledMinutes;
+                    else if (minCost === costForVirtualAgent) lowestCostSessionsVA += automatedSessions;
+                    else lowestCostSessionsAI += automatedSessions;
+                }
+            });
+            
+            let selectedDigitalBotTokens = 0, selectedDigitalVATokens = 0, selectedDigitalAITokens = 0;
+            let lowestCostDigitalBotTokens = 0, lowestCostDigitalVATokens = 0, lowestCostDigitalAITokens = 0;
+
+            digitalMix.forEach(row => {
+                if(row.include !== 1) return;
+                const automatedInteractions = (row.interactions * (row.percentAuto / 100));
+                const baseCalc = (automatedInteractions * row.avgTurns) / 8;
+
+                const tokensForDigitalBot = Math.ceil(baseCalc / 51);
+                const tokensForVirtualAgent = Math.ceil(baseCalc / 2);
+                const tokensForAgenticAI = baseCalc;
+
+                if (row.selectedAIType === 'Digital Bot') selectedDigitalBotTokens += tokensForDigitalBot;
+                else if (row.selectedAIType === 'Virtual Agent') selectedDigitalVATokens += tokensForVirtualAgent;
+                else if (row.selectedAIType === 'Agentic AI') selectedDigitalAITokens += tokensForAgenticAI;
+
+                const minDigitalTokens = Math.min(tokensForDigitalBot, tokensForVirtualAgent, tokensForAgenticAI);
+                if(minDigitalTokens === tokensForDigitalBot) lowestCostDigitalBotTokens += tokensForDigitalBot;
+                else if(minDigitalTokens === tokensForVirtualAgent) lowestCostDigitalVATokens += tokensForVirtualAgent;
+                else lowestCostDigitalAITokens += tokensForAgenticAI;
+            });
+
+            let coPilotTokens = 0;
+            const numUsers = parseInt(copilotUsers.value, 10) || 0;
+            if (copilotNamed.checked) coPilotTokens = 40 * numUsers;
+            else if (copilotConcurrent.checked) coPilotTokens = 60 * numUsers;
+
+            let predictiveTokens = 0;
+            let numEvents = 0;
+            if (predictiveEngagement.checked) {
+                numEvents = parseInt(predictiveEvents.value, 10) || 0;
+                predictiveTokens = Math.ceil(numEvents / 4000);
+            }
+
+            let routingTokens = 0;
+            let numRoutes = 0;
+            if (routingEnable.checked) {
+                numRoutes = parseInt(routingRoutes.value, 10) || 0;
+                routingTokens = Math.ceil(numRoutes / 17);
+            }
+            
+            let summaryInsightsTokens = 0;
+            let summaryInsightsVal = 0;
+            if (insights.summary_insights.checkbox.checked) {
+                summaryInsightsVal = parseInt(insights.summary_insights.input.value, 10) || 0;
+                summaryInsightsTokens = Math.ceil(summaryInsightsVal / 50);
+            }
+            let scoringTokens = 0;
+            let scoringVal = 0;
+            if (insights.scoring.checkbox.checked) {
+                scoringVal = parseInt(insights.scoring.input.value, 10) || 0;
+                scoringTokens = Math.ceil(scoringVal / 20);
+            }
+            let translateTokens = 0;
+            let translateVal = 0;
+            if (insights.translate.checkbox.checked) {
+                translateVal = parseInt(insights.translate.input.value, 10) || 0;
+                translateTokens = Math.ceil(translateVal / 2);
+            }
+
+            const aiGuideCreationTokens = parseInt(inputs["AI Guide Creation"], 10) || 0;
+
+            distributionData = {
+                selected: {
+                    tokensVoiceBot: TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(selectedMinutes / TOKEN_LENGTH_MINUTES) : 0,
+                    tokensVirtualAgent: Math.ceil(selectedSessionsVA / 2) + selectedDigitalVATokens,
+                    tokensAgenticAI: Math.ceil(selectedSessionsAI) + selectedDigitalAITokens,
+                    tokensDigitalBot: selectedDigitalBotTokens,
+                    coPilotTokens, predictiveTokens, routingTokens, summaryInsightsTokens, scoringTokens, translateTokens, aiGuideCreationTokens,
+                    totalAutomatedCalls,
+                    spareMinutes: (TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(selectedMinutes / TOKEN_LENGTH_MINUTES) : 0) * TOKEN_LENGTH_MINUTES - selectedMinutes,
+                    spareSessions: (Math.ceil(selectedSessionsVA / 2) * 2) - selectedSessionsVA,
+                    sparePredictive: (predictiveTokens * 4000) - numEvents,
+                    spareRouting: (routingTokens * 17) - numRoutes,
+                    spareSummaryInsights: (summaryInsightsTokens * 50) - summaryInsightsVal,
+                    spareScoring: (scoringTokens * 20) - scoringVal,
+                    spareTranslate: (translateTokens * 2) - translateVal
+                },
+                lowest_cost: {
+                    tokensVoiceBot: TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(lowestCostMinutes / TOKEN_LENGTH_MINUTES) : 0,
+                    tokensVirtualAgent: Math.ceil(lowestCostSessionsVA / 2) + lowestCostDigitalVATokens,
+                    tokensAgenticAI: Math.ceil(lowestCostSessionsAI) + lowestCostDigitalAITokens,
+                    tokensDigitalBot: lowestCostDigitalBotTokens,
+                    coPilotTokens, predictiveTokens, routingTokens, summaryInsightsTokens, scoringTokens, translateTokens, aiGuideCreationTokens,
+                    totalAutomatedCalls
+                }
+            };
+            
+            updateTokenDistributionChart();
+            updateResultsDisplay();
+            updateCompareView();
+            updateDigitalCompareView();
+        }
+        
+        function updateResultsDisplay() {
+            const view = tokenDistributionSelect.value;
+            const data = distributionData[view];
+            if (!data) return;
+
+            const tokenPrice = inputs["Token Price"] || 0;
+
+            const totalTokens = data.tokensVoiceBot + data.tokensVirtualAgent + data.tokensAgenticAI + data.tokensDigitalBot + data.coPilotTokens + data.predictiveTokens + data.routingTokens + data.summaryInsightsTokens + data.scoringTokens + data.translateTokens + data.aiGuideCreationTokens;
+            const tokenCost = totalTokens * tokenPrice;
+
+            const tokensResults = {
+                "Total Tokens": formatNumber(totalTokens),
+                "Token Cost": formatCurrency(tokenCost),
+            };
+            
+            const unusedCapacityResults = {};
+            if(view === 'selected') {
+                unusedCapacityResults["Voice Bot / Minutes"] = formatNumber(data.spareMinutes.toFixed(2));
+                unusedCapacityResults["Virtual Agent / Sessions"] = formatNumber(data.spareSessions);
+                unusedCapacityResults["Predictive Engagement / Events"] = formatNumber(data.sparePredictive);
+                unusedCapacityResults["Predictive Routing / Routes"] = formatNumber(data.spareRouting);
+                unusedCapacityResults["Summary & Insights / Summaries and/or Insights"] = formatNumber(data.spareSummaryInsights);
+                unusedCapacityResults["Scoring / Evaluations"] = formatNumber(data.spareScoring);
+                unusedCapacityResults["Translate / Translations"] = formatNumber(data.spareTranslate);
+            }
+
+            renderResultsSections(tokensResults, unusedCapacityResults);
+        }
+
+        // --- RENDERING FUNCTIONS ---
+        function renderInputs() {
+            inputsContainer.innerHTML = '';
+            initialInputs.forEach(inputObj => {
+                const id = `input-${inputObj.setting.replace(/[^a-zA-Z0-9]/g, '-')}`;
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex flex-col';
+                const label = document.createElement('label');
+                label.htmlFor = id;
+                label.textContent = inputObj.setting;
+                label.className = 'mb-1 text-sm font-medium';
+                const inputEl = document.createElement('input');
+                inputEl.type = 'number';
+                inputEl.id = id;
+                inputEl.value = inputs[inputObj.setting];
+                inputEl.className = 'p-2 rounded-md';
+                inputEl.addEventListener('change', (e) => {
+                    inputs[inputObj.setting] = parseFloat(e.target.value);
+                    calculateAll();
+                });
+                wrapper.appendChild(label);
+                wrapper.appendChild(inputEl);
+                inputsContainer.appendChild(wrapper);
+            });
+        }
+        
+        function renderInsights() {
+            const supervisorTypes = ['Summary & Insights', 'Translate'];
+            const virtualSupervisorTypes = ['Scoring'];
+            supervisorCopilotContainer.innerHTML = '';
+            virtualSupervisorCopilotContainer.innerHTML = '';
+
+            const createInsightRow = (type, container) => {
+                const lowerType = type.toLowerCase().replace(/ & /g, '_');
+                const wrapper = document.createElement('div');
+                wrapper.className = 'flex items-center gap-2';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.id = `insight-${lowerType}-check`;
+                
+                const label = document.createElement('label');
+                label.htmlFor = `insight-${lowerType}-check`;
+                label.textContent = type;
+                label.className = 'w-40';
+
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `insight-${lowerType}-input`;
+                input.value = 0;
+                input.className = 'w-full p-2 rounded-md';
+
+                wrapper.appendChild(checkbox);
+                wrapper.appendChild(label);
+                wrapper.appendChild(input);
+                container.appendChild(wrapper);
+
+                insights[lowerType] = { checkbox, input };
+
+                checkbox.addEventListener('change', calculateAll);
+                input.addEventListener('change', calculateAll);
+            };
+            
+            supervisorTypes.forEach(type => createInsightRow(type, supervisorCopilotContainer));
+            virtualSupervisorTypes.forEach(type => createInsightRow(type, virtualSupervisorCopilotContainer));
+        }
+
+        function renderCallMix() {
+            callMixTable.innerHTML = '';
+            compareSelect.innerHTML = '';
+            callMix.forEach((row, index) => {
+                if (!row.selectedAIType) {
+                    row.selectedAIType = 'Voice Bot';
+                }
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-card';
+                tr.innerHTML = `
+                    <td class="px-2 py-3 text-center"><input type="checkbox" class="bucket-checkbox" data-index="${index}"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="text" value="${row.name}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="name"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="text" value="${row.callLength}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="callLength"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.callsThisMonth}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="callsThisMonth"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.percentAutomated}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="percentAutomated"></td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <select class="w-full p-1 rounded" data-index="${index}" data-field="selectedAIType">
+                            <option value="Voice Bot" ${row.selectedAIType === 'Voice Bot' ? 'selected' : ''}>Voice Bot</option>
+                            <option value="Virtual Agent" ${row.selectedAIType === 'Virtual Agent' ? 'selected' : ''}>Virtual Agent</option>
+                            <option value="Agentic AI" ${row.selectedAIType === 'Agentic AI' ? 'selected' : ''}>Agentic AI</option>
+                        </select>
+                    </td>
+                `;
+                callMixTable.appendChild(tr);
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = row.name;
+                compareSelect.appendChild(option);
+            });
+            callMixTable.querySelectorAll('input, select').forEach(el => {
+                if (el.type === 'checkbox') return;
+                el.addEventListener('change', (e) => {
+                    const index = e.target.getAttribute('data-index');
+                    const field = e.target.getAttribute('data-field');
+                    const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                    callMix[index][field] = value;
+                    if (field === 'name') {
+                        renderCallMix();
+                    }
+                    calculateAll();
+                });
+            });
+        }
+        
+        function renderDigitalMix() {
+            digitalMixTable.innerHTML = '';
+            digitalCompareSelect.innerHTML = '';
+            digitalMix.forEach((row, index) => {
+                if (!row.selectedAIType) {
+                    row.selectedAIType = 'Digital Bot';
+                }
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-card';
+                tr.innerHTML = `
+                    <td class="px-2 py-3 text-center"><input type="checkbox" class="digital-checkbox" data-index="${index}"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="text" value="${row.name}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="name"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.avgTurns}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="avgTurns"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.interactions}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="interactions"></td>
+                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.percentAuto}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="percentAuto"></td>
+                    <td class="px-4 py-3 whitespace-nowrap">
+                        <select class="w-full p-1 rounded" data-index="${index}" data-field="selectedAIType">
+                            <option value="Digital Bot" ${row.selectedAIType === 'Digital Bot' ? 'selected' : ''}>Digital Bot</option>
+                            <option value="Virtual Agent" ${row.selectedAIType === 'Virtual Agent' ? 'selected' : ''}>Virtual Agent</option>
+                            <option value="Agentic AI" ${row.selectedAIType === 'Agentic AI' ? 'selected' : ''}>Agentic AI</option>
+                        </select>
+                    </td>
+                `;
+                digitalMixTable.appendChild(tr);
+                 const option = document.createElement('option');
+                option.value = index;
+                option.textContent = row.name;
+                digitalCompareSelect.appendChild(option);
+            });
+
+            digitalMixTable.querySelectorAll('input, select').forEach(el => {
+                 if (el.type === 'checkbox') return;
+                el.addEventListener('change', (e) => {
+                    const index = e.target.getAttribute('data-index');
+                    const field = e.target.getAttribute('data-field');
+                    const value = e.target.type === 'number' ? parseFloat(e.target.value) : e.target.value;
+                    digitalMix[index][field] = value;
+                    if (field === 'name') {
+                        renderDigitalMix();
+                    }
+                    calculateAll();
+                });
+            });
+        }
+
+        function renderResultsSections(tokens, unused) {
+            resultsContainer.innerHTML = '';
+
+            const createSection = (title, data, isUnused = false) => {
+                const hasValues = Object.values(data).some(val => parseFloat(String(val).replace(/,/g, '')) !== 0);
+                 if (!hasValues && isUnused && tokenDistributionSelect.value !== 'selected') return '';
+                
+                const hasUnusedCapacity = Object.values(unused).some(val => parseFloat(String(val).replace(/,/g, '')) >= 1);
+                const titleColorClass = isUnused && hasUnusedCapacity ? 'text-red-500' : 'text-white';
+
+                let sectionHtml = `<div class="space-y-2"><h3 class="text-lg font-semibold ${titleColorClass} mb-2">${title}</h3>`;
+                for (const key in data) {
+                    const value = data[key];
+                    const valueColorClass = isUnused && parseFloat(String(value).replace(/,/g, '')) >= 1 ? 'text-red-500' : 'text-white';
+                    sectionHtml += `
+                        <div class="flex justify-between items-center bg-gray-900 p-2 rounded-lg">
+                            <span class="text-sm text-gray-400">${key}</span>
+                            <span class="font-bold ${valueColorClass}">${value}</span>
+                        </div>
+                    `;
+                }
+                sectionHtml += '</div>';
+                return sectionHtml;
+            }
+
+            resultsContainer.innerHTML += createSection('Tokens', tokens);
+            resultsContainer.innerHTML += createSection('Unused Capacity', unused, true);
+        }
+        
+        function updateTokenDistributionChart() {
+            if(tokenDistributionChart) tokenDistributionChart.destroy();
+            
+            const view = tokenDistributionSelect.value;
+            const data = distributionData[view];
+            if (!data) return;
+
+            const chartLabels = [];
+            const chartData = [];
+            const chartColors = [];
+
+            if (data.tokensVoiceBot >= 1) { chartLabels.push('Voice Bot'); chartData.push(data.tokensVoiceBot); chartColors.push('#3b82f6'); }
+            if (data.tokensVirtualAgent >= 1) { chartLabels.push('Virtual Agent'); chartData.push(data.tokensVirtualAgent); chartColors.push('#10b981'); }
+            if (data.tokensAgenticAI >= 1) { chartLabels.push('Agentic AI'); chartData.push(data.tokensAgenticAI); chartColors.push('#a855f7'); }
+            if (data.tokensDigitalBot >= 1) { chartLabels.push('Digital Bot'); chartData.push(data.tokensDigitalBot); chartColors.push('#14b8a6');}
+            if (data.coPilotTokens >= 1) { chartLabels.push('Co-Pilot'); chartData.push(data.coPilotTokens); chartColors.push('#f97316');}
+            if (data.predictiveTokens >= 1) { chartLabels.push('Predictive Engagement'); chartData.push(data.predictiveTokens); chartColors.push('#f59e0b');}
+            if (data.routingTokens >= 1) { chartLabels.push('Predictive Routing'); chartData.push(data.routingTokens); chartColors.push('#6366f1');}
+            if (data.summaryInsightsTokens >= 1) { chartLabels.push('Summary & Insights'); chartData.push(data.summaryInsightsTokens); chartColors.push('#ec4899');}
+            if (data.scoringTokens >= 1) { chartLabels.push('Scoring'); chartData.push(data.scoringTokens); chartColors.push('#06b6d4');}
+            if (data.translateTokens >= 1) { chartLabels.push('Translate'); chartData.push(data.translateTokens); chartColors.push('#d946ef');}
+            if (data.aiGuideCreationTokens >= 1) { chartLabels.push('AI Guide Creation'); chartData.push(data.aiGuideCreationTokens); chartColors.push('#e11d48');}
+
+
+            tokenDistributionChart = new Chart(tokenDistributionChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: chartLabels,
+                    datasets: [{
+                        label: 'Tokens',
+                        data: chartData,
+                        backgroundColor: chartColors,
+                        borderColor: '#1f2937',
+                        borderWidth: 4,
+                        minBarLength: 10
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { 
+                           display: false
+                        } 
+                    },
+                    scales: {
+                        y: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } },
+                        x: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } }
+                    }
+                }
+            });
+        }
+
+        function updateCompareView() {
+            if(comparisonChart) comparisonChart.destroy();
+            
+            const selectedIndex = compareSelect.value;
+            if (selectedIndex === null || selectedIndex === '' || !callMix[selectedIndex]) {
+                return;
+            }
+
+            const callType = callMix[selectedIndex];
+            const callLengthSeconds = parseTimeToSeconds(callType.callLength);
+            const automatedCalls = callType.callsThisMonth * (callType.percentAutomated / 100);
+            const billedMinutesPerCall = Math.ceil(callLengthSeconds / 15) * 0.25;
+            const automatedBilledMinutes = automatedCalls * billedMinutesPerCall;
+            const automatedSessions = automatedCalls;
+            const tokenPrice = inputs["Token Price"];
+            
+            const tokensVoiceBot = TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(automatedBilledMinutes / TOKEN_LENGTH_MINUTES) : 0;
+            const costVoiceBot = tokensVoiceBot * tokenPrice;
+            
+            const tokensVirtualAgent = Math.ceil(automatedSessions / 2);
+            const costVirtualAgent = tokensVirtualAgent * tokenPrice;
+            
+            const tokensAgenticAI = automatedSessions;
+            const costAgenticAI = tokensAgenticAI * tokenPrice;
+            
+            comparisonChart = new Chart(comparisonChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Voice Bot', 'Virtual Agent', 'Agentic AI'],
+                    datasets: [{
+                        label: 'Cost ($)',
+                        data: [costVoiceBot, costVirtualAgent, costAgenticAI],
+                        backgroundColor: ['#3b82f6', '#10b981', '#a855f7'],
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } },
+                        x: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+        
+        function updateDigitalCompareView() {
+            if(digitalComparisonChart) digitalComparisonChart.destroy();
+            
+            const selectedIndex = digitalCompareSelect.value;
+            if (selectedIndex === null || selectedIndex === '' || !digitalMix[selectedIndex]) {
+                return;
+            }
+
+            const interaction = digitalMix[selectedIndex];
+            const automatedInteractions = (interaction.interactions * (interaction.percentAuto / 100));
+            const baseCalc = (automatedInteractions * interaction.avgTurns) / 8;
+            const tokenPrice = inputs["Token Price"];
+
+            const tokensForDigitalBot = Math.ceil(baseCalc / 51);
+            const costForDigitalBot = tokensForDigitalBot * tokenPrice;
+
+            const tokensForVirtualAgent = Math.ceil(baseCalc / 2);
+            const costForVirtualAgent = tokensForVirtualAgent * tokenPrice;
+
+            const tokensForAgenticAI = baseCalc;
+            const costForAgenticAI = tokensForAgenticAI * tokenPrice;
+            
+            digitalComparisonChart = new Chart(digitalComparisonChartCtx, {
+                type: 'bar',
+                data: {
+                    labels: ['Digital Bot', 'Virtual Agent', 'Agentic AI'],
+                    datasets: [{
+                        label: 'Cost ($)',
+                        data: [costForDigitalBot, costForVirtualAgent, costForAgenticAI],
+                        backgroundColor: ['#14b8a6', '#10b981', '#a855f7'],
+                    }]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: { beginAtZero: true, ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } },
+                        x: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } }
+                    },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+        
+        // --- EVENT LISTENERS ---
+        addRowBtn.addEventListener('click', () => {
+            callMix.push({
+                include: 1, name: "", callLength: "0:00", callsThisMonth: 0,
+                percentAutomated: DEFAULT_AUTOMATION_PERCENT, selectedAIType: "Voice Bot"
+            });
+            renderCallMix();
+            calculateAll();
+        });
+
+        deleteSelectedBtn.addEventListener('click', () => {
+            const indicesToDelete = [];
+            document.querySelectorAll('.bucket-checkbox:checked').forEach(cb => {
+                indicesToDelete.push(parseInt(cb.dataset.index));
+            });
+            
+            if (indicesToDelete.length > 0) {
+                callMix = callMix.filter((_, index) => !indicesToDelete.includes(index));
+                renderCallMix();
+                calculateAll();
+            }
+        });
+        
+        addDigitalRowBtn.addEventListener('click', () => {
+            digitalMix.push({
+                include: 1,
+                name: "",
+                avgTurns: 0,
+                interactions: 0,
+                percentAuto: 0,
+                selectedAIType: "Digital Bot"
+            });
+            renderDigitalMix();
+            calculateAll();
+        });
+
+        deleteSelectedDigitalBtn.addEventListener('click', () => {
+            const indicesToDelete = [];
+            document.querySelectorAll('.digital-checkbox:checked').forEach(cb => {
+                indicesToDelete.push(parseInt(cb.dataset.index));
+            });
+            
+            if (indicesToDelete.length > 0) {
+                digitalMix = digitalMix.filter((_, index) => !indicesToDelete.includes(index));
+                renderDigitalMix();
+                calculateAll();
+            }
+        });
+
+        resetAllBtn.addEventListener('click', () => {
+            if (resetAllBtn.dataset.confirm === 'true') {
+                callMix = [];
+                digitalMix = [];
+                initialInputs.forEach(input => { inputs[input.setting] = input.value; });
+                copilotNamed.checked = false;
+                copilotConcurrent.checked = false;
+                copilotUsers.value = 0;
+                predictiveEngagement.checked = false;
+                predictiveEvents.value = 0;
+                routingEnable.checked = false;
+                routingRoutes.value = 0;
+                for(const key in insights) {
+                    insights[key].checkbox.checked = false;
+                    insights[key].input.value = 0;
+                }
+                renderInputs();
+                renderCallMix();
+                renderDigitalMix();
+                calculateAll();
+                clearTimeout(resetTimeout);
+                resetAllBtn.textContent = 'Reset All';
+                resetAllBtn.dataset.confirm = 'false';
+            } else {
+                resetAllBtn.textContent = 'Confirm Reset?';
+                resetAllBtn.dataset.confirm = 'true';
+                resetTimeout = setTimeout(() => {
+                    resetAllBtn.textContent = 'Reset All';
+                    resetAllBtn.dataset.confirm = 'false';
+                }, 3000);
+            }
+        });
+        
+        compareSelect.addEventListener('change', updateCompareView);
+        digitalCompareSelect.addEventListener('change', updateDigitalCompareView);
+        tokenDistributionSelect.addEventListener('change', () => {
+            updateTokenDistributionChart();
+            updateResultsDisplay();
+        });
+
+        copilotNamed.addEventListener('change', () => {
+            if (copilotNamed.checked) copilotConcurrent.checked = false;
+            calculateAll();
+        });
+        copilotConcurrent.addEventListener('change', () => {
+            if (copilotConcurrent.checked) copilotNamed.checked = false;
+            calculateAll();
+        });
+        copilotUsers.addEventListener('change', calculateAll);
+        predictiveEngagement.addEventListener('change', calculateAll);
+        predictiveEvents.addEventListener('change', calculateAll);
+        routingEnable.addEventListener('change', calculateAll);
+        routingRoutes.addEventListener('change', calculateAll);
+        userGuideBtn.addEventListener('click', () => {
+            window.open('Genesys AI Token Calculator User Guide.pdf', '_blank');
+        });
+
+
+        // --- INITIALIZATION ---
+        function initializeApp() {
+            callMix = JSON.parse(JSON.stringify(initialCallMix));
+            digitalMix = JSON.parse(JSON.stringify(initialDigitalMix));
+            initialInputs.forEach(input => { inputs[input.setting] = input.value; });
+            renderInputs();
+            renderInsights();
+            renderCallMix();
+            renderDigitalMix();
+            calculateAll();
+        }
+
+        initializeApp();
+    </script>
+</body>
+</html>
