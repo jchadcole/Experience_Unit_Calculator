@@ -1,7 +1,9 @@
+/* Genesys AI Token Calculator */
+/* ver. 202509271101 */
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-g">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Token Cost Estimator</title>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -86,17 +88,17 @@
             <div class="card p-6">
                  <h2 class="text-2xl font-semibold mb-4 text-white">Results</h2>
                  <div class="flex justify-center items-center mb-4">
-                    <label for="token-distribution-select" class="mr-2 text-sm font-medium">Token Distribution:</label>
-                    <select id="token-distribution-select" class="rounded-md shadow-sm">
-                        <option value="selected">Selected</option>
-                        <option value="lowest_cost">Lowest Cost</option>
-                    </select>
-                </div>
+                     <label for="token-distribution-select" class="mr-2 text-sm font-medium">Token Distribution:</label>
+                     <select id="token-distribution-select" class="rounded-md shadow-sm">
+                         <option value="selected">Selected</option>
+                         <option value="lowest_cost">Lowest Cost</option>
+                     </select>
+                 </div>
                  <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-center">
-                    <div class="h-[450px]">
-                        <canvas id="tokenDistributionChart"></canvas>
-                    </div>
-                    <div id="results-container" class="space-y-6"></div>
+                     <div class="h-[450px]">
+                         <canvas id="tokenDistributionChart"></canvas>
+                     </div>
+                     <div id="results-container" class="space-y-6"></div>
                  </div>
             </div>
 
@@ -121,8 +123,8 @@
                         </table>
                     </div>
                      <div class="mt-4 flex space-x-4">
-                        <button id="add-row-btn" class="btn">Add New Voice Interaction</button>
-                        <button id="delete-selected-btn" class="btn btn-danger">Delete Selected</button>
+                         <button id="add-row-btn" class="btn">Add New Voice Interaction</button>
+                         <button id="delete-selected-btn" class="btn btn-danger">Delete Selected</button>
                      </div>
                 </div>
                 
@@ -161,8 +163,8 @@
                         </table>
                     </div>
                      <div class="mt-4 flex space-x-4">
-                        <button id="add-digital-row-btn" class="btn">Add New Digital Interaction</button>
-                        <button id="delete-selected-digital-btn" class="btn btn-danger">Delete Selected</button>
+                         <button id="add-digital-row-btn" class="btn">Add New Digital Interaction</button>
+                         <button id="delete-selected-digital-btn" class="btn btn-danger">Delete Selected</button>
                      </div>
                 </div>
                  <div class="lg:col-span-1 card p-6">
@@ -236,8 +238,8 @@
                     </div>
                 </div>
                 <div class="mt-8 pt-6 border-t border-card flex justify-between items-center">
-                     <button id="reset-all-btn" class="btn btn-danger">Reset All</button>
-                     <button id="user-guide-btn" class="btn">User Guide</button>
+                      <button id="reset-all-btn" class="btn btn-danger">Reset All</button>
+                      <button id="user-guide-btn" class="btn">User Guide</button>
                 </div>
             </div>
         </div>
@@ -356,7 +358,7 @@
 
                 const tokensForDigitalBot = Math.ceil(baseCalc / 51);
                 const tokensForVirtualAgent = Math.ceil(baseCalc / 2);
-                const tokensForAgenticAI = baseCalc;
+                const tokensForAgenticAI = Math.ceil(baseCalc);
 
                 if (row.selectedAIType === 'Digital Bot') selectedDigitalBotTokens += tokensForDigitalBot;
                 else if (row.selectedAIType === 'Virtual Agent') selectedDigitalVATokens += tokensForVirtualAgent;
@@ -730,7 +732,7 @@
             const tokensVirtualAgent = Math.ceil(automatedSessions / 2);
             const costVirtualAgent = tokensVirtualAgent * tokenPrice;
             
-            const tokensAgenticAI = automatedSessions;
+            const tokensAgenticAI = Math.ceil(automatedSessions);
             const costAgenticAI = tokensAgenticAI * tokenPrice;
             
             comparisonChart = new Chart(comparisonChartCtx, {
@@ -775,7 +777,7 @@
             const tokensForVirtualAgent = Math.ceil(baseCalc / 2);
             const costForVirtualAgent = tokensForVirtualAgent * tokenPrice;
 
-            const tokensForAgenticAI = baseCalc;
+            const tokensForAgenticAI = Math.ceil(baseCalc);
             const costForAgenticAI = tokensForAgenticAI * tokenPrice;
             
             digitalComparisonChart = new Chart(digitalComparisonChartCtx, {
