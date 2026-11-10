@@ -25,6 +25,7 @@ Estimated Cost and the Lowest Cost results can change, because each AI type now 
 - The Voice and Digital AI Cost Comparison charts use each AI type's price.
 - The Lowest Cost view now picks the cheapest AI type for each row by cost at these prices. Digital rows previously compared Experience Units only. With all prices equal, Lowest Cost picks match 2.0.1.
 - The Estimated Cost tile shows the prices in use.
+- Updated the User Guide, README and screenshots for the new pricing fields.
 
 ## [2.0.1] - 2026-11-10
 
