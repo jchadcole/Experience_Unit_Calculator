@@ -6,7 +6,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Genesys Experience Unit Calculator</title>
-    <meta name="description" content="Estimate how many Genesys Experience Units (tokens) a customer will need.">
+    <meta name="description" content="Estimate how many Genesys Experience Units a customer will need.">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -265,7 +265,7 @@
                 <div class="brand-mark" aria-hidden="true">EU</div>
                 <div class="min-w-0">
                     <h1 class="text-base sm:text-lg font-bold tracking-tight truncate">Genesys Experience Unit Calculator <span class="version-badge app-version align-middle">—</span></h1>
-                    <p class="hidden sm:block text-xs muted -mt-0.5">Estimate the Experience Units (tokens) a customer will need</p>
+                    <p class="hidden sm:block text-xs muted -mt-0.5">Estimate the Experience Units a customer will need</p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
@@ -488,7 +488,7 @@
         //   MAJOR: changes to calculation logic or results
         //   MINOR: new features, inputs or capabilities
         //   PATCH: fixes, wording and styling
-        const APP_VERSION = '2.0.0';
+        const APP_VERSION = '2.0.1';
         const APP_BUILD = '2026-11-10';
         document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
         document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
@@ -1191,7 +1191,7 @@
         routingEnable.addEventListener('change', calculateAll);
         routingRoutes.addEventListener('change', calculateAll);
         userGuideBtn.addEventListener('click', () => {
-            window.open('Genesys AI Token Calculator User Guide.pdf', '_blank');
+            window.open('Genesys Experience Unit Calculator User Guide.pdf', '_blank');
         });
 
 
