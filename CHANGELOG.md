@@ -9,6 +9,24 @@ The project uses [Semantic Versioning](https://semver.org/):
 
 The current version is set in `APP_VERSION` in `index.html` and shown in the app header and footer. Bump it and add an entry here with every release.
 
+## [3.0.0] - 2026-11-10
+
+Estimated Cost and the Lowest Cost results can change, because each AI type now has its own price.
+
+### Removed
+- The **AI Guide Creation** input. Its Experience Units no longer count toward Total Experience Units, Estimated Cost or the breakdown chart.
+
+### Changed
+- Replaced the single "Price per Experience Unit" with preset price fields, each defaulting to $1.00:
+  - **Bot**: Voice Bot and Digital Bot
+  - **VA**: Virtual Agent
+  - **AVA**: Agentic AI
+  - **Other capabilities**: Copilot, Predictive Engagement, Predictive Routing, Supervisor Copilot and Virtual Supervisor Copilot
+- Estimated Cost now multiplies each AI type's Experience Units by its own price.
+- The Voice and Digital AI Cost Comparison charts use each AI type's price.
+- The Lowest Cost view now picks the cheapest AI type for each row by cost at these prices. Digital rows previously compared Experience Units only. With all prices equal, results match 2.0.1.
+- The Estimated Cost tile shows the prices in use.
+
 ## [2.0.1] - 2026-11-10
 
 ### Changed

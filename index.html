@@ -294,7 +294,7 @@
                 <div class="kpi">
                     <div class="section-label">Estimated Cost</div>
                     <div id="kpi-cost" class="kpi-value mt-1">$0.00</div>
-                    <div id="kpi-price" class="text-xs muted mt-1">at $1.00 per Experience Unit</div>
+                    <div id="kpi-price" class="text-xs muted mt-1">Bot $1.00 · VA $1.00 · AVA $1.00 · Other $1.00 per Experience Unit</div>
                 </div>
                 <div class="kpi flex flex-col justify-between gap-3">
                     <div>
@@ -488,7 +488,7 @@
         //   MAJOR: changes to calculation logic or results
         //   MINOR: new features, inputs or capabilities
         //   PATCH: fixes, wording and styling
-        const APP_VERSION = '2.0.1';
+        const APP_VERSION = '3.0.0';
         const APP_BUILD = '2026-11-10';
         document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
         document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
@@ -498,9 +498,18 @@
         const TOKEN_LENGTH_MINUTES = 17;
         const DEFAULT_AUTOMATION_PERCENT = 50;
         const initialInputs = [
-            { setting: "Token Price", label: "Price per Experience Unit ($)", value: 1 },
-            { setting: "AI Guide Creation", label: "AI Guide Creation (Experience Units)", value: 0 },
+            { setting: "Bot Price", label: "Bot: Voice & Digital Bot ($ per EU)", value: 1 },
+            { setting: "VA Price", label: "VA: Virtual Agent ($ per EU)", value: 1 },
+            { setting: "AVA Price", label: "AVA: Agentic AI ($ per EU)", value: 1 },
+            { setting: "Other Price", label: "Other capabilities ($ per EU)", value: 1 },
         ];
+
+        // Price per Experience Unit for each AI type. Bot covers Voice Bot and Digital Bot,
+        // VA is Virtual Agent, AVA is Agentic AI. "Other" prices Copilot, Predictive and Supervisor Copilot units.
+        function getPrices() {
+            const p = (k) => { const v = parseFloat(inputs[k]); return isFinite(v) && v >= 0 ? v : 0; };
+            return { bot: p("Bot Price"), va: p("VA Price"), ava: p("AVA Price"), other: p("Other Price") };
+        }
 
         const initialCallMix = [];
         const initialDigitalMix = [];
@@ -584,7 +593,7 @@
             let selectedMinutes = 0, selectedSessionsVA = 0, selectedSessionsAI = 0;
             let lowestCostMinutes = 0, lowestCostSessionsVA = 0, lowestCostSessionsAI = 0;
             let totalAutomatedCalls = 0;
-            const tokenPrice = inputs["Token Price"] || 0;
+            const prices = getPrices();
 
             callMix.forEach(row => {
                 if (row.include !== 1) return;
@@ -601,9 +610,9 @@
                 else if (row.selectedAIType === 'Virtual Agent') selectedSessionsVA += automatedSessions;
                 else selectedSessionsAI += automatedSessions;
 
-                const costForVoiceBot = (TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(automatedBilledMinutes / TOKEN_LENGTH_MINUTES) : Infinity) * tokenPrice;
-                const costForVirtualAgent = Math.ceil(automatedSessions / 2) * tokenPrice;
-                const costForAgenticAI = automatedSessions * tokenPrice;
+                const costForVoiceBot = (TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(automatedBilledMinutes / TOKEN_LENGTH_MINUTES) : Infinity) * prices.bot;
+                const costForVirtualAgent = Math.ceil(automatedSessions / 2) * prices.va;
+                const costForAgenticAI = automatedSessions * prices.ava;
                 
                 if (callLengthSeconds >= 510) {
                     lowestCostSessionsVA += automatedSessions;
@@ -631,9 +640,12 @@
                 else if (row.selectedAIType === 'Virtual Agent') selectedDigitalVATokens += tokensForVirtualAgent;
                 else if (row.selectedAIType === 'Agentic AI') selectedDigitalAITokens += tokensForAgenticAI;
 
-                const minDigitalTokens = Math.min(tokensForDigitalBot, tokensForVirtualAgent, tokensForAgenticAI);
-                if(minDigitalTokens === tokensForDigitalBot) lowestCostDigitalBotTokens += tokensForDigitalBot;
-                else if(minDigitalTokens === tokensForVirtualAgent) lowestCostDigitalVATokens += tokensForVirtualAgent;
+                const digitalCostBot = tokensForDigitalBot * prices.bot;
+                const digitalCostVA = tokensForVirtualAgent * prices.va;
+                const digitalCostAVA = tokensForAgenticAI * prices.ava;
+                const minDigitalCost = Math.min(digitalCostBot, digitalCostVA, digitalCostAVA);
+                if(minDigitalCost === digitalCostBot) lowestCostDigitalBotTokens += tokensForDigitalBot;
+                else if(minDigitalCost === digitalCostVA) lowestCostDigitalVATokens += tokensForVirtualAgent;
                 else lowestCostDigitalAITokens += tokensForAgenticAI;
             });
 
@@ -675,15 +687,13 @@
                 translateTokens = Math.ceil(translateVal / 2);
             }
 
-            const aiGuideCreationTokens = parseInt(inputs["AI Guide Creation"], 10) || 0;
-
             distributionData = {
                 selected: {
                     tokensVoiceBot: TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(selectedMinutes / TOKEN_LENGTH_MINUTES) : 0,
                     tokensVirtualAgent: Math.ceil(selectedSessionsVA / 2) + selectedDigitalVATokens,
                     tokensAgenticAI: Math.ceil(selectedSessionsAI) + selectedDigitalAITokens,
                     tokensDigitalBot: selectedDigitalBotTokens,
-                    coPilotTokens, predictiveTokens, routingTokens, summaryInsightsTokens, scoringTokens, translateTokens, aiGuideCreationTokens,
+                    coPilotTokens, predictiveTokens, routingTokens, summaryInsightsTokens, scoringTokens, translateTokens,
                     totalAutomatedCalls,
                     spareMinutes: (TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(selectedMinutes / TOKEN_LENGTH_MINUTES) : 0) * TOKEN_LENGTH_MINUTES - selectedMinutes,
                     spareSessions: (Math.ceil(selectedSessionsVA / 2) * 2) - selectedSessionsVA,
@@ -698,7 +708,7 @@
                     tokensVirtualAgent: Math.ceil(lowestCostSessionsVA / 2) + lowestCostDigitalVATokens,
                     tokensAgenticAI: Math.ceil(lowestCostSessionsAI) + lowestCostDigitalAITokens,
                     tokensDigitalBot: lowestCostDigitalBotTokens,
-                    coPilotTokens, predictiveTokens, routingTokens, summaryInsightsTokens, scoringTokens, translateTokens, aiGuideCreationTokens,
+                    coPilotTokens, predictiveTokens, routingTokens, summaryInsightsTokens, scoringTokens, translateTokens,
                     totalAutomatedCalls
                 }
             };
@@ -714,10 +724,12 @@
             const data = distributionData[view];
             if (!data) return;
 
-            const tokenPrice = inputs["Token Price"] || 0;
+            const prices = getPrices();
 
-            const totalTokens = data.tokensVoiceBot + data.tokensVirtualAgent + data.tokensAgenticAI + data.tokensDigitalBot + data.coPilotTokens + data.predictiveTokens + data.routingTokens + data.summaryInsightsTokens + data.scoringTokens + data.translateTokens + data.aiGuideCreationTokens;
-            const tokenCost = totalTokens * tokenPrice;
+            const botTokens = data.tokensVoiceBot + data.tokensDigitalBot;
+            const otherTokens = data.coPilotTokens + data.predictiveTokens + data.routingTokens + data.summaryInsightsTokens + data.scoringTokens + data.translateTokens;
+            const totalTokens = botTokens + data.tokensVirtualAgent + data.tokensAgenticAI + otherTokens;
+            const tokenCost = botTokens * prices.bot + data.tokensVirtualAgent * prices.va + data.tokensAgenticAI * prices.ava + otherTokens * prices.other;
 
             const tokensResults = {
                 "Total Experience Units": formatNumber(totalTokens),
@@ -726,7 +738,7 @@
 
             document.getElementById('kpi-total').textContent = formatNumber(totalTokens);
             document.getElementById('kpi-cost').textContent = formatCurrency(tokenCost);
-            document.getElementById('kpi-price').textContent = `at ${formatCurrency(tokenPrice)} per Experience Unit`;
+            document.getElementById('kpi-price').textContent = `Bot ${formatCurrency(prices.bot)} · VA ${formatCurrency(prices.va)} · AVA ${formatCurrency(prices.ava)} · Other ${formatCurrency(prices.other)} per Experience Unit`;
             
             const unusedCapacityResults = {};
             if(view === 'selected') {
@@ -961,7 +973,6 @@
             if (data.summaryInsightsTokens >= 1) { chartLabels.push('Summary & Insights'); chartData.push(data.summaryInsightsTokens); chartColors.push('#ec4899');}
             if (data.scoringTokens >= 1) { chartLabels.push('Scoring'); chartData.push(data.scoringTokens); chartColors.push('#06b6d4');}
             if (data.translateTokens >= 1) { chartLabels.push('Translate'); chartData.push(data.translateTokens); chartColors.push('#d946ef');}
-            if (data.aiGuideCreationTokens >= 1) { chartLabels.push('AI Guide Creation'); chartData.push(data.aiGuideCreationTokens); chartColors.push('#e11d48');}
 
 
             document.getElementById('distribution-empty').style.display = chartData.length ? 'none' : '';
@@ -1009,16 +1020,16 @@
             const billedMinutesPerCall = Math.ceil(callLengthSeconds / 15) * 0.25;
             const automatedBilledMinutes = automatedCalls * billedMinutesPerCall;
             const automatedSessions = automatedCalls;
-            const tokenPrice = inputs["Token Price"];
+            const prices = getPrices();
             
             const tokensVoiceBot = TOKEN_LENGTH_MINUTES > 0 ? Math.ceil(automatedBilledMinutes / TOKEN_LENGTH_MINUTES) : 0;
-            const costVoiceBot = tokensVoiceBot * tokenPrice;
+            const costVoiceBot = tokensVoiceBot * prices.bot;
             
             const tokensVirtualAgent = Math.ceil(automatedSessions / 2);
-            const costVirtualAgent = tokensVirtualAgent * tokenPrice;
+            const costVirtualAgent = tokensVirtualAgent * prices.va;
             
             const tokensAgenticAI = Math.ceil(automatedSessions);
-            const costAgenticAI = tokensAgenticAI * tokenPrice;
+            const costAgenticAI = tokensAgenticAI * prices.ava;
             
             comparisonChart = new Chart(comparisonChartCtx, {
                 type: 'bar',
@@ -1054,16 +1065,16 @@
             const interaction = digitalMix[selectedIndex];
             const automatedInteractions = (interaction.interactions * (interaction.percentAuto / 100));
             const baseCalc = (automatedInteractions * interaction.avgTurns) / 8;
-            const tokenPrice = inputs["Token Price"];
+            const prices = getPrices();
 
             const tokensForDigitalBot = Math.ceil(baseCalc / 51);
-            const costForDigitalBot = tokensForDigitalBot * tokenPrice;
+            const costForDigitalBot = tokensForDigitalBot * prices.bot;
 
             const tokensForVirtualAgent = Math.ceil(baseCalc / 2);
-            const costForVirtualAgent = tokensForVirtualAgent * tokenPrice;
+            const costForVirtualAgent = tokensForVirtualAgent * prices.va;
 
             const tokensForAgenticAI = Math.ceil(baseCalc);
-            const costForAgenticAI = tokensForAgenticAI * tokenPrice;
+            const costForAgenticAI = tokensForAgenticAI * prices.ava;
             
             digitalComparisonChart = new Chart(digitalComparisonChartCtx, {
                 type: 'bar',
