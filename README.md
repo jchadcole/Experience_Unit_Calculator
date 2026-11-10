@@ -13,7 +13,7 @@ Open `index.html` in a browser (or host it with any static web server such as Gi
 
 The per-interaction comparison charts show the cost of each AI option side by side.
 
-See `Genesys AI Token Calculator User Guide.pdf` for the full guide.
+See `Genesys Experience Unit Calculator User Guide.pdf` for the full guide.
 
 ## Notes
 

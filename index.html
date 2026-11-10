@@ -488,7 +488,7 @@
         //   MAJOR: changes to calculation logic or results
         //   MINOR: new features, inputs or capabilities
         //   PATCH: fixes, wording and styling
-        const APP_VERSION = '2.0.0';
+        const APP_VERSION = '2.0.1';
         const APP_BUILD = '2026-11-10';
         document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
         document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
@@ -1191,7 +1191,7 @@
         routingEnable.addEventListener('change', calculateAll);
         routingRoutes.addEventListener('change', calculateAll);
         userGuideBtn.addEventListener('click', () => {
-            window.open('Genesys AI Token Calculator User Guide.pdf', '_blank');
+            window.open('Genesys Experience Unit Calculator User Guide.pdf', '_blank');
         });
 
 
