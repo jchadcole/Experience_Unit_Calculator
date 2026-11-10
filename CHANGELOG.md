@@ -14,6 +14,7 @@ The current version is set in `APP_VERSION` in `index.html` and shown in the app
 ### Changed
 - Rewrote the User Guide for the new name and interface, with current screenshots, and renamed it to `Genesys Experience Unit Calculator User Guide.pdf`. The User Guide button opens the new file.
 - Removed stray chat text and a duplicated copy of the guide that were in the old PDF.
+- Removed "(tokens)" from the subtitle under the title.
 - Documented that the Lowest Cost view always counts voice calls of 8:30 or longer as Virtual Agent.
 
 ## [2.0.0] - 2026-11-10
