@@ -1,257 +1,505 @@
-<!-- Genesys AI Token Calculator -->
-<!-- ver. 202509271101 -->
 <!DOCTYPE html>
+<!-- Genesys Experience Unit Calculator -->
+<!-- Version: see APP_VERSION below and CHANGELOG.md -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Token Cost Estimator</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Genesys Experience Unit Calculator</title>
+    <meta name="description" content="Estimate how many Genesys Experience Units (tokens) a customer will need.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com/3.4.16"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+        // Apply the saved theme before first paint to avoid a flash.
+        (function () {
+            try {
+                const saved = localStorage.getItem('eu-calc-theme');
+                if (saved === 'light' || saved === 'dark') document.documentElement.setAttribute('data-theme', saved);
+            } catch (e) { /* storage unavailable */ }
+        })();
+    </script>
     <style>
-        body {
-            background-color: #111827; /* Even Darker Gray */
-            color: #e5e7eb;
-            font-family: 'Inter', sans-serif;
+        :root {
+            --bg: #f5f6f8;
+            --bg-grad: radial-gradient(1200px 500px at 10% -10%, rgba(255, 79, 31, 0.10), transparent 60%),
+                       radial-gradient(900px 400px at 100% 0%, rgba(99, 102, 241, 0.08), transparent 60%);
+            --surface: #ffffff;
+            --surface-2: #f3f4f6;
+            --surface-3: #e9ebef;
+            --border: #e3e6eb;
+            --text: #111827;
+            --text-muted: #6b7280;
+            --accent: #ff4f1f;
+            --accent-hover: #e8400f;
+            --accent-soft: rgba(255, 79, 31, 0.10);
+            --danger: #dc2626;
+            --danger-soft: rgba(220, 38, 38, 0.08);
+            --ring: rgba(255, 79, 31, 0.35);
+            --shadow: 0 1px 2px rgba(16, 24, 40, 0.04), 0 4px 16px rgba(16, 24, 40, 0.06);
+            --chart-text: #374151;
+            --chart-grid: #eceef2;
+            color-scheme: light;
         }
-        .bg-card {
-            background-color: #1f2937;
+        @media (prefers-color-scheme: dark) {
+            :root:not([data-theme="light"]) {
+                --bg: #0b0f17;
+                --bg-grad: radial-gradient(1200px 500px at 10% -10%, rgba(255, 79, 31, 0.14), transparent 60%),
+                           radial-gradient(900px 400px at 100% 0%, rgba(99, 102, 241, 0.12), transparent 60%);
+                --surface: #121826;
+                --surface-2: #1a2131;
+                --surface-3: #232b3d;
+                --border: #252d3f;
+                --text: #e8eaf0;
+                --text-muted: #8b93a7;
+                --accent-soft: rgba(255, 79, 31, 0.16);
+                --danger: #f87171;
+                --danger-soft: rgba(248, 113, 113, 0.12);
+                --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+                --chart-text: #c3c8d4;
+                --chart-grid: #222a3b;
+                color-scheme: dark;
+            }
         }
-        .border-card {
-            border-color: #374151;
+        :root[data-theme="dark"] {
+            --bg: #0b0f17;
+            --bg-grad: radial-gradient(1200px 500px at 10% -10%, rgba(255, 79, 31, 0.14), transparent 60%),
+                       radial-gradient(900px 400px at 100% 0%, rgba(99, 102, 241, 0.12), transparent 60%);
+            --surface: #121826;
+            --surface-2: #1a2131;
+            --surface-3: #232b3d;
+            --border: #252d3f;
+            --text: #e8eaf0;
+            --text-muted: #8b93a7;
+            --accent-soft: rgba(255, 79, 31, 0.16);
+            --danger: #f87171;
+            --danger-soft: rgba(248, 113, 113, 0.12);
+            --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.25);
+            --chart-text: #c3c8d4;
+            --chart-grid: #222a3b;
+            color-scheme: dark;
         }
-        input, select {
-            background-color: #374151;
-            border-color: #4b5563;
-            color: #e5e7eb;
-        }
-        .btn {
-            background-color: #3b82f6;
-            color: white;
-            font-weight: 600;
-            padding: 0.625rem 1.25rem;
-            border-radius: 0.5rem;
-            transition: background-color 0.2s;
-            white-space: nowrap;
-        }
-        .btn:hover {
-            background-color: #2563eb;
-        }
-        .btn-danger {
-            background-color: #ef4444;
-        }
-        .btn-danger:hover {
-            background-color: #dc2626;
-        }
-        .card {
-            background-color: #1f2937;
-            border-radius: 0.75rem;
-            border: 1px solid #374151;
-            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-        }
-        /* Custom checkbox style */
-        input[type="checkbox"] {
-            appearance: none;
-            background-color: #374151;
-            border: 1px solid #4b5563;
-            border-radius: 0.25rem;
-            width: 1.25rem;
-            height: 1.25rem;
-            cursor: pointer;
-            position: relative;
-            top: 0.25rem;
-        }
-        input[type="checkbox"]:checked {
-            background-color: #3b82f6;
-            border-color: #3b82f6;
-        }
-        input[type="checkbox"]:checked::after {
-            content: '✔';
-            position: absolute;
-            color: white;
-            font-size: 0.8rem;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-        }
-    </style>
-    <link rel="stylesheet" href="https://rsms.me/inter/inter.css">
-</head>
-<body class="bg-gray-900 p-4 sm:p-6 lg:p-8">
-    <div class="max-w-screen-xl mx-auto">
-        <div class="text-center mb-8">
-            <h1 class="text-4xl font-bold text-white">Genesys AI Token Calculator</h1>
-        </div>
 
-        <div class="flex flex-col gap-8">
-            <!-- Results Section -->
-            <div class="card p-6">
-                 <h2 class="text-2xl font-semibold mb-4 text-white">Results</h2>
-                 <div class="flex justify-center items-center mb-4">
-                     <label for="token-distribution-select" class="mr-2 text-sm font-medium">Token Distribution:</label>
-                     <select id="token-distribution-select" class="rounded-md shadow-sm">
-                         <option value="selected">Selected</option>
-                         <option value="lowest_cost">Lowest Cost</option>
-                     </select>
-                 </div>
-                 <div class="grid grid-cols-1 xl:grid-cols-2 gap-8 items-center">
-                     <div class="h-[450px]">
-                         <canvas id="tokenDistributionChart"></canvas>
-                     </div>
-                     <div id="results-container" class="space-y-6"></div>
-                 </div>
+        * { -webkit-tap-highlight-color: transparent; }
+        body {
+            background: var(--bg-grad), var(--bg);
+            background-attachment: fixed;
+            color: var(--text);
+            font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+            font-feature-settings: 'cv11', 'ss01';
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+        }
+        .muted { color: var(--text-muted); }
+        .version-badge {
+            display: inline-block; margin-left: 0.35rem; padding: 0.1rem 0.45rem; border-radius: 999px;
+            font-size: 0.65rem; font-weight: 600; letter-spacing: 0.02em; vertical-align: middle;
+            background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
+        }
+
+        /* Header */
+        .app-header {
+            position: sticky; top: 0; z-index: 20;
+            background: color-mix(in srgb, var(--bg) 78%, transparent);
+            backdrop-filter: saturate(160%) blur(12px);
+            -webkit-backdrop-filter: saturate(160%) blur(12px);
+            border-bottom: 1px solid var(--border);
+        }
+        .brand-mark {
+            width: 2.25rem; height: 2.25rem; border-radius: 0.65rem;
+            display: grid; place-items: center;
+            background: linear-gradient(135deg, #ff7a45, var(--accent));
+            color: #fff; font-weight: 800; font-size: 0.8rem; letter-spacing: 0.02em;
+            box-shadow: 0 4px 14px rgba(255, 79, 31, 0.35);
+        }
+
+        /* Cards */
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+        }
+        .card-title { font-size: 1.05rem; font-weight: 650; letter-spacing: -0.01em; color: var(--text); }
+        .card-sub { font-size: 0.8rem; color: var(--text-muted); margin-top: 0.125rem; }
+        .section-label {
+            font-size: 0.7rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-muted);
+        }
+
+        /* KPI tiles */
+        .kpi {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 1rem;
+            box-shadow: var(--shadow);
+            padding: 1.1rem 1.25rem;
+        }
+        .kpi-value { font-size: 1.9rem; font-weight: 750; letter-spacing: -0.02em; line-height: 1.15; font-variant-numeric: tabular-nums; }
+        .kpi-accent { background: linear-gradient(135deg, #ff7a45, var(--accent)); border-color: transparent; color: #fff; }
+        .kpi-accent .section-label { color: rgba(255, 255, 255, 0.85); }
+
+        /* Form controls */
+        input[type="number"], input[type="text"], select {
+            background-color: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text);
+            border-radius: 0.6rem;
+            transition: border-color .15s, box-shadow .15s, background-color .15s;
+            font-variant-numeric: tabular-nums;
+        }
+        input[type="number"]:hover, input[type="text"]:hover, select:hover { border-color: color-mix(in srgb, var(--text-muted) 45%, var(--border)); }
+        input[type="number"]:focus, input[type="text"]:focus, select:focus {
+            outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--ring); background-color: var(--surface);
+        }
+        select {
+            appearance: none;
+            padding-right: 2rem !important;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238b93a7' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.65rem center;
+            cursor: pointer;
+        }
+
+        /* Data tables */
+        .data-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .data-table thead th {
+            font-size: 0.7rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase;
+            color: var(--text-muted); text-align: left; padding: 0.6rem 0.5rem;
+            border-bottom: 1px solid var(--border); white-space: nowrap;
+        }
+        .data-table tbody td { padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); }
+        .data-table tbody tr:last-child td { border-bottom: none; }
+        .data-table tbody tr:hover td { background: color-mix(in srgb, var(--surface-2) 60%, transparent); }
+        .data-table td input[type="text"], .data-table td input[type="number"], .data-table td select {
+            background-color: transparent; border-color: transparent; padding: 0.4rem 0.5rem; min-width: 6rem;
+        }
+        .data-table td input[type="text"]:hover, .data-table td input[type="number"]:hover, .data-table td select:hover {
+            background-color: var(--surface-2); border-color: var(--border);
+        }
+        .data-table td input:focus, .data-table td select:focus { background-color: var(--surface); }
+        .data-table td select { min-width: 8.5rem; }
+        .empty-row td { text-align: center; padding: 2rem 1rem !important; color: var(--text-muted); font-size: 0.875rem; }
+        .empty-row:hover td { background: transparent !important; }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex; align-items: center; gap: 0.4rem;
+            background-color: var(--accent); color: #fff;
+            font-weight: 600; font-size: 0.875rem;
+            padding: 0.55rem 1rem; border-radius: 0.65rem;
+            border: 1px solid transparent;
+            transition: background-color .15s, box-shadow .15s, transform .05s;
+            white-space: nowrap; cursor: pointer;
+        }
+        .btn:hover { background-color: var(--accent-hover); }
+        .btn:active { transform: translateY(1px); }
+        .btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+        .btn-ghost { background: var(--surface); color: var(--text); border-color: var(--border); }
+        .btn-ghost:hover { background: var(--surface-2); }
+        .btn-danger { background: transparent; color: var(--danger); border-color: color-mix(in srgb, var(--danger) 35%, transparent); }
+        .btn-danger:hover { background: var(--danger-soft); }
+        .btn-danger[data-confirm="true"] { background: var(--danger); color: #fff; border-color: var(--danger); }
+        .icon-btn {
+            width: 2.25rem; height: 2.25rem; display: grid; place-items: center;
+            border-radius: 0.65rem; border: 1px solid var(--border); background: var(--surface); color: var(--text);
+            cursor: pointer; transition: background-color .15s;
+        }
+        .icon-btn:hover { background: var(--surface-2); }
+        .icon-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+        /* Segmented control (mirrors the distribution select) */
+        .segmented { display: inline-flex; padding: 0.2rem; border-radius: 0.7rem; background: var(--surface-2); border: 1px solid var(--border); }
+        .segmented button {
+            font-size: 0.8rem; font-weight: 600; padding: 0.4rem 0.8rem; border-radius: 0.55rem;
+            color: var(--text-muted); transition: background-color .15s, color .15s; cursor: pointer;
+        }
+        .segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0,0,0,0.12); }
+        .segmented button:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+
+        /* Result rows */
+        .result-row {
+            display: flex; justify-content: space-between; align-items: center; gap: 1rem;
+            padding: 0.6rem 0.85rem; border-radius: 0.65rem; background: var(--surface-2);
+        }
+        .result-row .label { font-size: 0.85rem; color: var(--text-muted); }
+        .result-row .value { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--text); }
+        .result-row.warn { background: var(--danger-soft); }
+        .result-row.warn .value { color: var(--danger); }
+        .title-warn { color: var(--danger) !important; }
+
+        /* Feature toggles */
+        .feature {
+            border: 1px solid var(--border); border-radius: 0.85rem; padding: 1rem; background: var(--surface);
+            transition: border-color .15s, background-color .15s;
+        }
+        .feature:has(input[type="checkbox"]:checked) { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent-soft) 45%, var(--surface)); }
+
+        /* Checkbox */
+        input[type="checkbox"] {
+            appearance: none; flex: none;
+            background-color: var(--surface);
+            border: 1.5px solid color-mix(in srgb, var(--text-muted) 55%, var(--border));
+            border-radius: 0.35rem;
+            width: 1.1rem; height: 1.1rem;
+            cursor: pointer; position: relative; vertical-align: middle;
+            transition: background-color .15s, border-color .15s;
+        }
+        input[type="checkbox"]:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--ring); }
+        input[type="checkbox"]:checked { background-color: var(--accent); border-color: var(--accent); }
+        input[type="checkbox"]:checked::after {
+            content: ''; position: absolute; left: 50%; top: 45%;
+            width: 0.3rem; height: 0.55rem; border: solid #fff; border-width: 0 2px 2px 0;
+            transform: translate(-50%, -50%) rotate(45deg);
+        }
+
+        .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--text-muted); font-size: 0.875rem; padding: 1rem; pointer-events: none; }
+    </style>
+</head>
+<body>
+    <header class="app-header">
+        <div class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+            <div class="flex items-center gap-3 min-w-0">
+                <div class="brand-mark" aria-hidden="true">EU</div>
+                <div class="min-w-0">
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight truncate">Genesys Experience Unit Calculator <span class="version-badge app-version align-middle">—</span></h1>
+                    <p class="hidden sm:block text-xs muted -mt-0.5">Estimate the Experience Units (tokens) a customer will need</p>
+                </div>
             </div>
+            <div class="flex items-center gap-2">
+                <button id="user-guide-btn" class="btn btn-ghost" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                    <span class="hidden sm:inline">User Guide</span>
+                </button>
+                <button id="theme-toggle" class="icon-btn" type="button" aria-label="Toggle light and dark mode" title="Toggle light / dark">
+                    <svg class="theme-icon-sun" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                    <svg class="theme-icon-moon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-screen-xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div class="flex flex-col gap-6">
+
+            <!-- Summary KPIs -->
+            <section class="grid grid-cols-1 sm:grid-cols-3 gap-4" aria-label="Summary">
+                <div class="kpi kpi-accent">
+                    <div class="section-label">Total Experience Units</div>
+                    <div id="kpi-total" class="kpi-value mt-1">0</div>
+                    <div class="text-xs mt-1" style="color: rgba(255,255,255,.85)">per month</div>
+                </div>
+                <div class="kpi">
+                    <div class="section-label">Estimated Cost</div>
+                    <div id="kpi-cost" class="kpi-value mt-1">$0.00</div>
+                    <div id="kpi-price" class="text-xs muted mt-1">at $1.00 per Experience Unit</div>
+                </div>
+                <div class="kpi flex flex-col justify-between gap-3">
+                    <div>
+                        <div class="section-label">Distribution</div>
+                        <div class="text-xs muted mt-1">Use each interaction's selected AI, or the lowest-cost option.</div>
+                    </div>
+                    <div class="segmented self-start" role="group" aria-label="Experience Unit distribution">
+                        <button type="button" data-dist="selected" aria-pressed="true">Selected</button>
+                        <button type="button" data-dist="lowest_cost" aria-pressed="false">Lowest Cost</button>
+                    </div>
+                    <select id="token-distribution-select" class="sr-only" aria-hidden="true" tabindex="-1">
+                        <option value="selected">Selected</option>
+                        <option value="lowest_cost">Lowest Cost</option>
+                    </select>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="card p-5 sm:p-6">
+                <div class="flex items-start justify-between gap-4 mb-4">
+                    <div>
+                        <h2 class="card-title">Experience Unit Breakdown</h2>
+                        <p class="card-sub">Experience Units by capability for the chosen distribution</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 xl:grid-cols-5 gap-6 items-start">
+                    <div class="xl:col-span-3 relative h-[380px]">
+                        <canvas id="tokenDistributionChart" aria-label="Experience Units by capability" role="img"></canvas>
+                        <div id="distribution-empty" class="chart-empty">Add voice or digital interactions, or enable a capability below, to see the breakdown.</div>
+                    </div>
+                    <div id="results-container" class="xl:col-span-2 space-y-6"></div>
+                </div>
+            </section>
 
             <!-- Voice Mix & Comparison Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div class="lg:col-span-3 card p-6">
-                    <h2 class="text-2xl font-semibold mb-4 text-white">Voice Mix</h2>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead class="border-b border-card">
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 card p-5 sm:p-6">
+                    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="card-title">Voice Mix</h2>
+                            <p class="card-sub">Call length as m:ss. Voice Bot is billed in 15-second increments.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button id="delete-selected-btn" class="btn btn-danger" type="button">Delete Selected</button>
+                            <button id="add-row-btn" class="btn" type="button">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                Add Voice Interaction
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto -mx-2">
+                        <table class="data-table">
+                            <thead>
                                 <tr>
-                                    <th class="px-2 py-3"></th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Call Length</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Calls/Month</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">% Auto</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Selected AI</th>
+                                    <th class="w-8"></th>
+                                    <th>Name</th>
+                                    <th>Call Length</th>
+                                    <th>Calls / Month</th>
+                                    <th>% Automated</th>
+                                    <th>Selected AI</th>
                                 </tr>
                             </thead>
                             <tbody id="call-mix-table">
                             </tbody>
                         </table>
                     </div>
-                     <div class="mt-4 flex space-x-4">
-                         <button id="add-row-btn" class="btn">Add New Voice Interaction</button>
-                         <button id="delete-selected-btn" class="btn btn-danger">Delete Selected</button>
-                     </div>
                 </div>
-                
-                <div class="lg:col-span-1 card p-6">
-                    <h2 class="text-2xl font-semibold mb-4 text-white">Voice AI Cost Comparison</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="compare-select" class="block text-sm font-medium">Select Interaction:</label>
-                            <select id="compare-select" class="mt-1 block w-full rounded-md shadow-sm"></select>
-                        </div>
-                        <div class="h-80">
-                           <canvas id="comparisonChart"></canvas>
-                        </div>
+
+                <div class="card p-5 sm:p-6 flex flex-col">
+                    <h2 class="card-title">Voice AI Cost Comparison</h2>
+                    <p class="card-sub mb-4">Compare options for one voice interaction</p>
+                    <label for="compare-select" class="section-label mb-1.5">Interaction</label>
+                    <select id="compare-select" class="block w-full px-3 py-2"></select>
+                    <div class="relative h-64 mt-4">
+                        <canvas id="comparisonChart" aria-label="Voice AI cost comparison" role="img"></canvas>
+                        <div id="compare-empty" class="chart-empty">Add a voice interaction to compare.</div>
                     </div>
                 </div>
-            </div>
-            
-             <!-- Digital Mix Section -->
-            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
-                <div class="lg:col-span-3 card p-6">
-                    <h2 class="text-2xl font-semibold mb-4 text-white">Digital Mix</h2>
-                    <div class="overflow-x-auto">
-                        <table class="min-w-full">
-                            <thead class="border-b border-card">
+            </section>
+
+            <!-- Digital Mix Section -->
+            <section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 card p-5 sm:p-6">
+                    <div class="flex flex-wrap items-start justify-between gap-3 mb-4">
+                        <div>
+                            <h2 class="card-title">Digital Mix</h2>
+                            <p class="card-sub">Messaging and chat interactions by average number of turns.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button id="delete-selected-digital-btn" class="btn btn-danger" type="button">Delete Selected</button>
+                            <button id="add-digital-row-btn" class="btn" type="button">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+                                Add Digital Interaction
+                            </button>
+                        </div>
+                    </div>
+                    <div class="overflow-x-auto -mx-2">
+                        <table class="data-table">
+                            <thead>
                                 <tr>
-                                    <th class="px-2 py-3"></th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Name</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Avg # Turns</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Interactions/Month</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">% Auto</th>
-                                    <th class="px-4 py-3 text-left text-xs font-medium uppercase tracking-wider">Selected AI</th>
+                                    <th class="w-8"></th>
+                                    <th>Name</th>
+                                    <th>Avg # Turns</th>
+                                    <th>Interactions / Month</th>
+                                    <th>% Automated</th>
+                                    <th>Selected AI</th>
                                 </tr>
                             </thead>
                             <tbody id="digital-mix-table">
                             </tbody>
                         </table>
                     </div>
-                     <div class="mt-4 flex space-x-4">
-                         <button id="add-digital-row-btn" class="btn">Add New Digital Interaction</button>
-                         <button id="delete-selected-digital-btn" class="btn btn-danger">Delete Selected</button>
-                     </div>
                 </div>
-                 <div class="lg:col-span-1 card p-6">
-                    <h2 class="text-2xl font-semibold mb-4 text-white">Digital AI Cost Comparison</h2>
-                    <div class="space-y-4">
-                        <div>
-                            <label for="digital-compare-select" class="block text-sm font-medium">Select Interaction:</label>
-                            <select id="digital-compare-select" class="mt-1 block w-full rounded-md shadow-sm"></select>
-                        </div>
-                        <div class="h-80">
-                           <canvas id="digitalComparisonChart"></canvas>
-                        </div>
+                <div class="card p-5 sm:p-6 flex flex-col">
+                    <h2 class="card-title">Digital AI Cost Comparison</h2>
+                    <p class="card-sub mb-4">Compare options for one digital interaction</p>
+                    <label for="digital-compare-select" class="section-label mb-1.5">Interaction</label>
+                    <select id="digital-compare-select" class="block w-full px-3 py-2"></select>
+                    <div class="relative h-64 mt-4">
+                        <canvas id="digitalComparisonChart" aria-label="Digital AI cost comparison" role="img"></canvas>
+                        <div id="digital-compare-empty" class="chart-empty">Add a digital interaction to compare.</div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             <!-- Configuration Section -->
-            <div class="card p-6">
-                <h2 class="text-2xl font-semibold mb-4 text-white">Configuration</h2>
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-8 items-start">
-                    <div id="inputs-container" class="md:col-span-1 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-1 gap-4"></div>
-                    
-                    <div class="md:col-span-1">
-                        <h3 class="text-lg font-semibold mb-2 text-white">Co-Pilot</h3>
-                        <div class="space-y-4">
-                            <div class="flex items-center space-x-6">
-                                <div>
-                                    <input type="checkbox" id="copilot-named">
-                                    <label for="copilot-named" class="ml-2">Named</label>
-                                </div>
-                                <div>
-                                    <input type="checkbox" id="copilot-concurrent">
-                                    <label for="copilot-concurrent" class="ml-2">Concurrent</label>
-                                </div>
-                            </div>
-                             <div>
-                                <label for="copilot-users" class="block text-sm font-medium mb-1">Number of Users:</label>
-                                <input type="number" id="copilot-users" value="0" class="w-full p-2 rounded-md">
-                            </div>
+            <section class="card p-5 sm:p-6">
+                <div class="mb-5">
+                    <h2 class="card-title">Configuration</h2>
+                    <p class="card-sub">Pricing and additional AI capabilities</p>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+                    <div class="feature">
+                        <div class="font-semibold mb-3">Pricing</div>
+                        <div id="inputs-container" class="grid grid-cols-1 gap-3"></div>
+                    </div>
+
+                    <div class="feature">
+                        <div class="font-semibold mb-3">Copilot</div>
+                        <div class="flex items-center gap-5 mb-3">
+                            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                                <input type="checkbox" id="copilot-named"> Named
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer text-sm">
+                                <input type="checkbox" id="copilot-concurrent"> Concurrent
+                            </label>
+                        </div>
+                        <label for="copilot-users" class="block text-xs muted mb-1">Number of users</label>
+                        <input type="number" id="copilot-users" value="0" min="0" class="w-full px-3 py-2">
+                    </div>
+
+                    <div class="feature space-y-4">
+                        <div>
+                            <label class="flex items-center gap-2 font-semibold cursor-pointer mb-3">
+                                <input type="checkbox" id="predictive-engagement"> Predictive Engagement
+                            </label>
+                            <label for="predictive-events" class="block text-xs muted mb-1">Number of events</label>
+                            <input type="number" id="predictive-events" value="0" min="0" class="w-full px-3 py-2">
+                        </div>
+                        <div class="pt-4 border-t" style="border-color: var(--border)">
+                            <label class="flex items-center gap-2 font-semibold cursor-pointer mb-3">
+                                <input type="checkbox" id="routing-enable"> Predictive Routing
+                            </label>
+                            <label for="routing-routes" class="block text-xs muted mb-1">Number of routes</label>
+                            <input type="number" id="routing-routes" value="0" min="0" class="w-full px-3 py-2">
                         </div>
                     </div>
 
-                    <div class="md:col-span-1">
-                         <div class="space-y-4">
-                            <div class="flex items-center">
-                                <input type="checkbox" id="predictive-engagement">
-                                <label for="predictive-engagement" class="ml-2 font-semibold text-lg">Predictive Engagement</label>
-                            </div>
-                             <div>
-                                <label for="predictive-events" class="block text-sm font-medium mb-1">Number of Events:</label>
-                                <input type="number" id="predictive-events" value="0" class="w-full p-2 rounded-md">
-                            </div>
+                    <div class="feature space-y-4">
+                        <div>
+                            <div class="font-semibold mb-3">Supervisor Copilot</div>
+                            <div id="supervisor-copilot-container" class="space-y-2"></div>
                         </div>
-                        <div class="space-y-4 mt-6">
-                            <div class="flex items-center">
-                                <input type="checkbox" id="routing-enable">
-                                <label for="routing-enable" class="ml-2 font-semibold text-lg">Predictive Routing</label>
-                            </div>
-                             <div>
-                                <label for="routing-routes" class="block text-sm font-medium mb-1">Number of Routes:</label>
-                                <input type="number" id="routing-routes" value="0" class="w-full p-2 rounded-md">
-                            </div>
+                        <div class="pt-4 border-t" style="border-color: var(--border)">
+                            <div class="font-semibold mb-3">Virtual Supervisor Copilot</div>
+                            <div id="virtual-supervisor-copilot-container" class="space-y-2"></div>
                         </div>
                     </div>
-                    
-                    <div class="md:col-span-1">
-                        <h3 class="text-lg font-semibold mb-2 text-white">Supervisor Copilot</h3>
-                        <div id="supervisor-copilot-container" class="space-y-2"></div>
-                        <h3 class="text-lg font-semibold mt-6 mb-2 text-white">Virtual Supervisor Copilot</h3>
-                        <div id="virtual-supervisor-copilot-container" class="space-y-2"></div>
-                    </div>
                 </div>
-                <div class="mt-8 pt-6 border-t border-card flex justify-between items-center">
-                      <button id="reset-all-btn" class="btn btn-danger">Reset All</button>
-                      <button id="user-guide-btn" class="btn">User Guide</button>
+                <div class="mt-6 pt-5 border-t flex flex-wrap justify-between items-center gap-3" style="border-color: var(--border)">
+                    <p class="text-xs muted">All figures are monthly estimates. 1 Experience Unit = 1 token. <span class="whitespace-nowrap">Version <span class="app-version">—</span> · <span class="app-build">—</span></span></p>
+                    <button id="reset-all-btn" class="btn btn-danger" type="button">Reset All</button>
                 </div>
-            </div>
+            </section>
         </div>
-    </div>
+    </main>
 
     <script>
+        // --- VERSION ---
+        // Semantic versioning (MAJOR.MINOR.PATCH). Bump with every release and add an entry to CHANGELOG.md.
+        //   MAJOR: changes to calculation logic or results
+        //   MINOR: new features, inputs or capabilities
+        //   PATCH: fixes, wording and styling
+        const APP_VERSION = '2.0.0';
+        const APP_BUILD = '2026-11-10';
+        document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
+        document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
+        document.title = `Genesys Experience Unit Calculator v${APP_VERSION}`;
+
         // --- DATA INITIALIZATION ---
         const TOKEN_LENGTH_MINUTES = 17;
         const DEFAULT_AUTOMATION_PERCENT = 50;
         const initialInputs = [
-            { setting: "Token Price", value: 1 },
-            { setting: "AI Guide Creation", value: 0 },
+            { setting: "Token Price", label: "Price per Experience Unit ($)", value: 1 },
+            { setting: "AI Guide Creation", label: "AI Guide Creation (Experience Units)", value: 0 },
         ];
 
         const initialCallMix = [];
@@ -311,6 +559,25 @@
         const formatNumber = (value) => {
             return new Intl.NumberFormat('en-US').format(value);
         }
+
+        // --- CHART THEME HELPERS (presentation only) ---
+        const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        const chartScales = (isCurrency = false) => {
+            const text = cssVar('--chart-text');
+            const grid = cssVar('--chart-grid');
+            return {
+                y: { beginAtZero: true, ticks: { color: text, font: { family: 'Inter', size: 12 } }, grid: { display: false }, border: { display: false } },
+                x: {
+                    beginAtZero: true,
+                    ticks: { color: text, font: { family: 'Inter', size: 11 }, callback: (v) => new Intl.NumberFormat('en-US', isCurrency ? { style: 'currency', currency: 'USD', notation: 'compact', maximumFractionDigits: 1 } : { notation: 'compact', maximumFractionDigits: 1 }).format(v) },
+                    grid: { color: grid }, border: { display: false }
+                }
+            };
+        };
+        const chartTooltip = (isCurrency = false) => ({
+            backgroundColor: '#111827', titleColor: '#fff', bodyColor: '#e5e7eb', padding: 10, cornerRadius: 8, displayColors: false,
+            callbacks: { label: (ctx) => isCurrency ? formatCurrency(ctx.parsed.x) : `${formatNumber(ctx.parsed.x)} Experience Units` }
+        });
 
         // --- CORE CALCULATION LOGIC ---
         function calculateAll() {
@@ -453,9 +720,13 @@
             const tokenCost = totalTokens * tokenPrice;
 
             const tokensResults = {
-                "Total Tokens": formatNumber(totalTokens),
-                "Token Cost": formatCurrency(tokenCost),
+                "Total Experience Units": formatNumber(totalTokens),
+                "Estimated Cost": formatCurrency(tokenCost),
             };
+
+            document.getElementById('kpi-total').textContent = formatNumber(totalTokens);
+            document.getElementById('kpi-cost').textContent = formatCurrency(tokenCost);
+            document.getElementById('kpi-price').textContent = `at ${formatCurrency(tokenPrice)} per Experience Unit`;
             
             const unusedCapacityResults = {};
             if(view === 'selected') {
@@ -480,13 +751,15 @@
                 wrapper.className = 'flex flex-col';
                 const label = document.createElement('label');
                 label.htmlFor = id;
-                label.textContent = inputObj.setting;
-                label.className = 'mb-1 text-sm font-medium';
+                label.textContent = inputObj.label || inputObj.setting;
+                label.className = 'mb-1 text-xs muted';
                 const inputEl = document.createElement('input');
                 inputEl.type = 'number';
                 inputEl.id = id;
                 inputEl.value = inputs[inputObj.setting];
-                inputEl.className = 'p-2 rounded-md';
+                inputEl.min = '0';
+                inputEl.step = 'any';
+                inputEl.className = 'w-full px-3 py-2';
                 inputEl.addEventListener('change', (e) => {
                     inputs[inputObj.setting] = parseFloat(e.target.value);
                     calculateAll();
@@ -506,7 +779,7 @@
             const createInsightRow = (type, container) => {
                 const lowerType = type.toLowerCase().replace(/ & /g, '_');
                 const wrapper = document.createElement('div');
-                wrapper.className = 'flex items-center gap-2';
+                wrapper.className = 'flex items-center gap-2 text-sm';
                 
                 const checkbox = document.createElement('input');
                 checkbox.type = 'checkbox';
@@ -515,13 +788,15 @@
                 const label = document.createElement('label');
                 label.htmlFor = `insight-${lowerType}-check`;
                 label.textContent = type;
-                label.className = 'w-40';
+                label.className = 'w-36 shrink-0 cursor-pointer';
 
                 const input = document.createElement('input');
                 input.type = 'number';
                 input.id = `insight-${lowerType}-input`;
                 input.value = 0;
-                input.className = 'w-full p-2 rounded-md';
+                input.min = '0';
+                input.setAttribute('aria-label', `${type} count`);
+                input.className = 'w-full min-w-0 px-3 py-1.5';
 
                 wrapper.appendChild(checkbox);
                 wrapper.appendChild(label);
@@ -546,15 +821,15 @@
                     row.selectedAIType = 'Voice Bot';
                 }
                 const tr = document.createElement('tr');
-                tr.className = 'border-b border-card';
+
                 tr.innerHTML = `
-                    <td class="px-2 py-3 text-center"><input type="checkbox" class="bucket-checkbox" data-index="${index}"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="text" value="${row.name}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="name"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="text" value="${row.callLength}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="callLength"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.callsThisMonth}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="callsThisMonth"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.percentAutomated}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="percentAutomated"></td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        <select class="w-full p-1 rounded" data-index="${index}" data-field="selectedAIType">
+                    <td class="text-center"><input type="checkbox" class="bucket-checkbox" data-index="${index}"></td>
+                    <td class="whitespace-nowrap"><input type="text" value="${row.name}" class="w-full" data-index="${index}" data-field="name"></td>
+                    <td class="whitespace-nowrap"><input type="text" value="${row.callLength}" class="w-full" data-index="${index}" data-field="callLength"></td>
+                    <td class="whitespace-nowrap"><input type="number" value="${row.callsThisMonth}" class="w-full" data-index="${index}" data-field="callsThisMonth"></td>
+                    <td class="whitespace-nowrap"><input type="number" value="${row.percentAutomated}" class="w-full" data-index="${index}" data-field="percentAutomated"></td>
+                    <td class="whitespace-nowrap">
+                        <select class="w-full" data-index="${index}" data-field="selectedAIType">
                             <option value="Voice Bot" ${row.selectedAIType === 'Voice Bot' ? 'selected' : ''}>Voice Bot</option>
                             <option value="Virtual Agent" ${row.selectedAIType === 'Virtual Agent' ? 'selected' : ''}>Virtual Agent</option>
                             <option value="Agentic AI" ${row.selectedAIType === 'Agentic AI' ? 'selected' : ''}>Agentic AI</option>
@@ -567,6 +842,10 @@
                 option.textContent = row.name;
                 compareSelect.appendChild(option);
             });
+            if (callMix.length === 0) {
+                callMixTable.innerHTML = '<tr class="empty-row"><td colspan="6">No voice interactions yet. Click <strong>Add Voice Interaction</strong> to start.</td></tr>';
+            }
+            document.getElementById('compare-empty').style.display = callMix.length ? 'none' : '';
             callMixTable.querySelectorAll('input, select').forEach(el => {
                 if (el.type === 'checkbox') return;
                 el.addEventListener('change', (e) => {
@@ -590,15 +869,15 @@
                     row.selectedAIType = 'Digital Bot';
                 }
                 const tr = document.createElement('tr');
-                tr.className = 'border-b border-card';
+
                 tr.innerHTML = `
-                    <td class="px-2 py-3 text-center"><input type="checkbox" class="digital-checkbox" data-index="${index}"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="text" value="${row.name}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="name"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.avgTurns}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="avgTurns"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.interactions}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="interactions"></td>
-                    <td class="px-4 py-3 whitespace-nowrap"><input type="number" value="${row.percentAuto}" class="w-full p-1 rounded bg-transparent" data-index="${index}" data-field="percentAuto"></td>
-                    <td class="px-4 py-3 whitespace-nowrap">
-                        <select class="w-full p-1 rounded" data-index="${index}" data-field="selectedAIType">
+                    <td class="text-center"><input type="checkbox" class="digital-checkbox" data-index="${index}"></td>
+                    <td class="whitespace-nowrap"><input type="text" value="${row.name}" class="w-full" data-index="${index}" data-field="name"></td>
+                    <td class="whitespace-nowrap"><input type="number" value="${row.avgTurns}" class="w-full" data-index="${index}" data-field="avgTurns"></td>
+                    <td class="whitespace-nowrap"><input type="number" value="${row.interactions}" class="w-full" data-index="${index}" data-field="interactions"></td>
+                    <td class="whitespace-nowrap"><input type="number" value="${row.percentAuto}" class="w-full" data-index="${index}" data-field="percentAuto"></td>
+                    <td class="whitespace-nowrap">
+                        <select class="w-full" data-index="${index}" data-field="selectedAIType">
                             <option value="Digital Bot" ${row.selectedAIType === 'Digital Bot' ? 'selected' : ''}>Digital Bot</option>
                             <option value="Virtual Agent" ${row.selectedAIType === 'Virtual Agent' ? 'selected' : ''}>Virtual Agent</option>
                             <option value="Agentic AI" ${row.selectedAIType === 'Agentic AI' ? 'selected' : ''}>Agentic AI</option>
@@ -612,6 +891,10 @@
                 digitalCompareSelect.appendChild(option);
             });
 
+            if (digitalMix.length === 0) {
+                digitalMixTable.innerHTML = '<tr class="empty-row"><td colspan="6">No digital interactions yet. Click <strong>Add Digital Interaction</strong> to start.</td></tr>';
+            }
+            document.getElementById('digital-compare-empty').style.display = digitalMix.length ? 'none' : '';
             digitalMixTable.querySelectorAll('input, select').forEach(el => {
                  if (el.type === 'checkbox') return;
                 el.addEventListener('change', (e) => {
@@ -635,16 +918,17 @@
                  if (!hasValues && isUnused && tokenDistributionSelect.value !== 'selected') return '';
                 
                 const hasUnusedCapacity = Object.values(unused).some(val => parseFloat(String(val).replace(/,/g, '')) >= 1);
-                const titleColorClass = isUnused && hasUnusedCapacity ? 'text-red-500' : 'text-white';
+                const titleColorClass = isUnused && hasUnusedCapacity ? 'title-warn' : '';
+                const subtitle = isUnused ? '<p class="text-xs muted -mt-1 mb-2">Capacity paid for but not used. Highlighted values are 1 or more.</p>' : '';
 
-                let sectionHtml = `<div class="space-y-2"><h3 class="text-lg font-semibold ${titleColorClass} mb-2">${title}</h3>`;
+                let sectionHtml = `<div class="space-y-2"><h3 class="section-label ${titleColorClass} mb-2">${title}</h3>${subtitle}`;
                 for (const key in data) {
                     const value = data[key];
-                    const valueColorClass = isUnused && parseFloat(String(value).replace(/,/g, '')) >= 1 ? 'text-red-500' : 'text-white';
+                    const warnClass = isUnused && parseFloat(String(value).replace(/,/g, '')) >= 1 ? 'warn' : '';
                     sectionHtml += `
-                        <div class="flex justify-between items-center bg-gray-900 p-2 rounded-lg">
-                            <span class="text-sm text-gray-400">${key}</span>
-                            <span class="font-bold ${valueColorClass}">${value}</span>
+                        <div class="result-row ${warnClass}">
+                            <span class="label">${key}</span>
+                            <span class="value">${value}</span>
                         </div>
                     `;
                 }
@@ -652,7 +936,7 @@
                 return sectionHtml;
             }
 
-            resultsContainer.innerHTML += createSection('Tokens', tokens);
+            resultsContainer.innerHTML += createSection('Experience Units', tokens);
             resultsContainer.innerHTML += createSection('Unused Capacity', unused, true);
         }
         
@@ -671,7 +955,7 @@
             if (data.tokensVirtualAgent >= 1) { chartLabels.push('Virtual Agent'); chartData.push(data.tokensVirtualAgent); chartColors.push('#10b981'); }
             if (data.tokensAgenticAI >= 1) { chartLabels.push('Agentic AI'); chartData.push(data.tokensAgenticAI); chartColors.push('#a855f7'); }
             if (data.tokensDigitalBot >= 1) { chartLabels.push('Digital Bot'); chartData.push(data.tokensDigitalBot); chartColors.push('#14b8a6');}
-            if (data.coPilotTokens >= 1) { chartLabels.push('Co-Pilot'); chartData.push(data.coPilotTokens); chartColors.push('#f97316');}
+            if (data.coPilotTokens >= 1) { chartLabels.push('Copilot'); chartData.push(data.coPilotTokens); chartColors.push('#f97316');}
             if (data.predictiveTokens >= 1) { chartLabels.push('Predictive Engagement'); chartData.push(data.predictiveTokens); chartColors.push('#f59e0b');}
             if (data.routingTokens >= 1) { chartLabels.push('Predictive Routing'); chartData.push(data.routingTokens); chartColors.push('#6366f1');}
             if (data.summaryInsightsTokens >= 1) { chartLabels.push('Summary & Insights'); chartData.push(data.summaryInsightsTokens); chartColors.push('#ec4899');}
@@ -680,16 +964,19 @@
             if (data.aiGuideCreationTokens >= 1) { chartLabels.push('AI Guide Creation'); chartData.push(data.aiGuideCreationTokens); chartColors.push('#e11d48');}
 
 
+            document.getElementById('distribution-empty').style.display = chartData.length ? 'none' : '';
+
             tokenDistributionChart = new Chart(tokenDistributionChartCtx, {
                 type: 'bar',
                 data: {
                     labels: chartLabels,
                     datasets: [{
-                        label: 'Tokens',
+                        label: 'Experience Units',
                         data: chartData,
                         backgroundColor: chartColors,
-                        borderColor: '#1f2937',
-                        borderWidth: 4,
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        maxBarThickness: 28,
                         minBarLength: 10
                     }]
                 },
@@ -697,15 +984,13 @@
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    plugins: { 
-                        legend: { 
+                    plugins: {
+                        legend: {
                            display: false
-                        } 
+                        },
+                        tooltip: chartTooltip()
                     },
-                    scales: {
-                        y: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } },
-                        x: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } }
-                    }
+                    scales: chartScales()
                 }
             });
         }
@@ -743,17 +1028,17 @@
                         label: 'Cost ($)',
                         data: [costVoiceBot, costVirtualAgent, costAgenticAI],
                         backgroundColor: ['#3b82f6', '#10b981', '#a855f7'],
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        maxBarThickness: 36,
                     }]
                 },
                 options: {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } },
-                        x: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } }
-                    },
-                    plugins: { legend: { display: false } }
+                    scales: chartScales(true),
+                    plugins: { legend: { display: false }, tooltip: chartTooltip(true) }
                 }
             });
         }
@@ -788,17 +1073,17 @@
                         label: 'Cost ($)',
                         data: [costForDigitalBot, costForVirtualAgent, costForAgenticAI],
                         backgroundColor: ['#14b8a6', '#10b981', '#a855f7'],
+                        borderRadius: 6,
+                        borderSkipped: false,
+                        maxBarThickness: 36,
                     }]
                 },
                 options: {
                     indexAxis: 'y',
                     responsive: true,
                     maintainAspectRatio: false,
-                    scales: {
-                        y: { beginAtZero: true, ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } },
-                        x: { ticks: { color: '#e5e7eb' }, grid: { color: '#374151' } }
-                    },
-                    plugins: { legend: { display: false } }
+                    scales: chartScales(true),
+                    plugins: { legend: { display: false }, tooltip: chartTooltip(true) }
                 }
             });
         }
@@ -909,6 +1194,37 @@
             window.open('Genesys AI Token Calculator User Guide.pdf', '_blank');
         });
 
+
+        // --- UI CHROME (presentation only) ---
+        const segmentButtons = document.querySelectorAll('.segmented [data-dist]');
+        segmentButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                tokenDistributionSelect.value = btn.dataset.dist;
+                segmentButtons.forEach(b => b.setAttribute('aria-pressed', String(b === btn)));
+                tokenDistributionSelect.dispatchEvent(new Event('change'));
+            });
+        });
+
+        const themeToggle = document.getElementById('theme-toggle');
+        const isDark = () => {
+            const t = document.documentElement.getAttribute('data-theme');
+            if (t) return t === 'dark';
+            return window.matchMedia('(prefers-color-scheme: dark)').matches;
+        };
+        const syncThemeIcon = () => {
+            themeToggle.querySelector('.theme-icon-sun').style.display = isDark() ? '' : 'none';
+            themeToggle.querySelector('.theme-icon-moon').style.display = isDark() ? 'none' : '';
+        };
+        const redrawCharts = () => { updateTokenDistributionChart(); updateCompareView(); updateDigitalCompareView(); };
+        themeToggle.addEventListener('click', () => {
+            const next = isDark() ? 'light' : 'dark';
+            document.documentElement.setAttribute('data-theme', next);
+            try { localStorage.setItem('eu-calc-theme', next); } catch (e) { /* storage unavailable */ }
+            syncThemeIcon();
+            redrawCharts();
+        });
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeIcon(); redrawCharts(); });
+        syncThemeIcon();
 
         // --- INITIALIZATION ---
         function initializeApp() {
