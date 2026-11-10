@@ -1,6 +1,6 @@
 <!DOCTYPE html>
 <!-- Genesys Experience Unit Calculator -->
-<!-- ver. 202611101900 -->
+<!-- Version: see APP_VERSION below and CHANGELOG.md -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -93,6 +93,11 @@
             min-height: 100vh;
         }
         .muted { color: var(--text-muted); }
+        .version-badge {
+            display: inline-block; margin-left: 0.35rem; padding: 0.1rem 0.45rem; border-radius: 999px;
+            font-size: 0.65rem; font-weight: 600; letter-spacing: 0.02em; vertical-align: middle;
+            background: var(--surface-2); color: var(--text-muted); border: 1px solid var(--border);
+        }
 
         /* Header */
         .app-header {
@@ -259,7 +264,7 @@
             <div class="flex items-center gap-3 min-w-0">
                 <div class="brand-mark" aria-hidden="true">EU</div>
                 <div class="min-w-0">
-                    <h1 class="text-base sm:text-lg font-bold tracking-tight truncate">Genesys Experience Unit Calculator</h1>
+                    <h1 class="text-base sm:text-lg font-bold tracking-tight truncate">Genesys Experience Unit Calculator <span class="version-badge app-version align-middle">—</span></h1>
                     <p class="hidden sm:block text-xs muted -mt-0.5">Estimate the Experience Units (tokens) a customer will need</p>
                 </div>
             </div>
@@ -470,7 +475,7 @@
                     </div>
                 </div>
                 <div class="mt-6 pt-5 border-t flex flex-wrap justify-between items-center gap-3" style="border-color: var(--border)">
-                    <p class="text-xs muted">All figures are monthly estimates. 1 Experience Unit = 1 token.</p>
+                    <p class="text-xs muted">All figures are monthly estimates. 1 Experience Unit = 1 token. <span class="whitespace-nowrap">Version <span class="app-version">—</span> · <span class="app-build">—</span></span></p>
                     <button id="reset-all-btn" class="btn btn-danger" type="button">Reset All</button>
                 </div>
             </section>
@@ -478,6 +483,17 @@
     </main>
 
     <script>
+        // --- VERSION ---
+        // Semantic versioning (MAJOR.MINOR.PATCH). Bump with every release and add an entry to CHANGELOG.md.
+        //   MAJOR: changes to calculation logic or results
+        //   MINOR: new features, inputs or capabilities
+        //   PATCH: fixes, wording and styling
+        const APP_VERSION = '2.0.0';
+        const APP_BUILD = '2026-11-10';
+        document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
+        document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
+        document.title = `Genesys Experience Unit Calculator v${APP_VERSION}`;
+
         // --- DATA INITIALIZATION ---
         const TOKEN_LENGTH_MINUTES = 17;
         const DEFAULT_AUTOMATION_PERCENT = 50;

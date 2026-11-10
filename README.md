@@ -19,3 +19,7 @@ See `Genesys AI Token Calculator User Guide.pdf` for the full guide.
 
 - Light and dark themes follow your system setting; use the toggle in the header to override it.
 - Tailwind CSS, Chart.js and the Inter font are loaded from public CDNs.
+
+## Versioning
+
+The app uses semantic versioning. The version is shown in the header and footer and is set by `APP_VERSION` in `index.html`. See [CHANGELOG.md](CHANGELOG.md) for release history and the rules for bumping it.
