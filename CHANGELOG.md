@@ -9,6 +9,14 @@ The project uses [Semantic Versioning](https://semver.org/):
 
 The current version is set in `APP_VERSION` in `index.html` and shown in the app header and footer. Bump it and add an entry here with every release.
 
+## [3.1.0] - 2026-11-10
+
+### Added
+- **Download Summary** button in the header with two formats for the current estimate:
+  - **PDF report**: a one-page printable summary opened in the print dialog (choose *Save as PDF*). It shows Total Experience Units, Estimated Cost, the totals for the other distribution, Experience Units, price and cost for each AI type, the Voice and Digital Mix, enabled capabilities and Unused Capacity.
+  - **CSV spreadsheet**: the same information as a file for Excel or Google Sheets.
+- The summary follows the Distribution currently chosen (Selected or Lowest Cost). Calculations are unchanged.
+
 ## [3.0.0] - 2026-11-10
 
 Estimated Cost and the Lowest Cost results can change, because each AI type now has its own price.
