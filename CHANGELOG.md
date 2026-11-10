@@ -21,10 +21,9 @@ Estimated Cost and the Lowest Cost results can change, because each AI type now 
   - **Bot**: Voice Bot and Digital Bot
   - **VA**: Virtual Agent
   - **AVA**: Agentic AI
-  - **Other capabilities**: Copilot, Predictive Engagement, Predictive Routing, Supervisor Copilot and Virtual Supervisor Copilot
-- Estimated Cost now multiplies each AI type's Experience Units by its own price.
+- Estimated Cost now multiplies each AI type's Experience Units by its own price. Experience Units from Copilot, Predictive Engagement, Predictive Routing, Supervisor Copilot and Virtual Supervisor Copilot still count toward Total Experience Units but no longer add to Estimated Cost.
 - The Voice and Digital AI Cost Comparison charts use each AI type's price.
-- The Lowest Cost view now picks the cheapest AI type for each row by cost at these prices. Digital rows previously compared Experience Units only. With all prices equal, results match 2.0.1.
+- The Lowest Cost view now picks the cheapest AI type for each row by cost at these prices. Digital rows previously compared Experience Units only. With all prices equal, Lowest Cost picks match 2.0.1.
 - The Estimated Cost tile shows the prices in use.
 
 ## [2.0.1] - 2026-11-10

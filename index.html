@@ -294,7 +294,7 @@
                 <div class="kpi">
                     <div class="section-label">Estimated Cost</div>
                     <div id="kpi-cost" class="kpi-value mt-1">$0.00</div>
-                    <div id="kpi-price" class="text-xs muted mt-1">Bot $1.00 · VA $1.00 · AVA $1.00 · Other $1.00 per Experience Unit</div>
+                    <div id="kpi-price" class="text-xs muted mt-1">Bot $1.00 · VA $1.00 · AVA $1.00 per Experience Unit</div>
                 </div>
                 <div class="kpi flex flex-col justify-between gap-3">
                     <div>
@@ -501,14 +501,14 @@
             { setting: "Bot Price", label: "Bot: Voice & Digital Bot ($ per EU)", value: 1 },
             { setting: "VA Price", label: "VA: Virtual Agent ($ per EU)", value: 1 },
             { setting: "AVA Price", label: "AVA: Agentic AI ($ per EU)", value: 1 },
-            { setting: "Other Price", label: "Other capabilities ($ per EU)", value: 1 },
         ];
 
         // Price per Experience Unit for each AI type. Bot covers Voice Bot and Digital Bot,
-        // VA is Virtual Agent, AVA is Agentic AI. "Other" prices Copilot, Predictive and Supervisor Copilot units.
+        // VA is Virtual Agent, AVA is Agentic AI. Other capabilities (Copilot, Predictive,
+        // Supervisor Copilot) count toward Total Experience Units but are not priced.
         function getPrices() {
             const p = (k) => { const v = parseFloat(inputs[k]); return isFinite(v) && v >= 0 ? v : 0; };
-            return { bot: p("Bot Price"), va: p("VA Price"), ava: p("AVA Price"), other: p("Other Price") };
+            return { bot: p("Bot Price"), va: p("VA Price"), ava: p("AVA Price") };
         }
 
         const initialCallMix = [];
@@ -729,7 +729,7 @@
             const botTokens = data.tokensVoiceBot + data.tokensDigitalBot;
             const otherTokens = data.coPilotTokens + data.predictiveTokens + data.routingTokens + data.summaryInsightsTokens + data.scoringTokens + data.translateTokens;
             const totalTokens = botTokens + data.tokensVirtualAgent + data.tokensAgenticAI + otherTokens;
-            const tokenCost = botTokens * prices.bot + data.tokensVirtualAgent * prices.va + data.tokensAgenticAI * prices.ava + otherTokens * prices.other;
+            const tokenCost = botTokens * prices.bot + data.tokensVirtualAgent * prices.va + data.tokensAgenticAI * prices.ava;
 
             const tokensResults = {
                 "Total Experience Units": formatNumber(totalTokens),
@@ -738,7 +738,7 @@
 
             document.getElementById('kpi-total').textContent = formatNumber(totalTokens);
             document.getElementById('kpi-cost').textContent = formatCurrency(tokenCost);
-            document.getElementById('kpi-price').textContent = `Bot ${formatCurrency(prices.bot)} · VA ${formatCurrency(prices.va)} · AVA ${formatCurrency(prices.ava)} · Other ${formatCurrency(prices.other)} per Experience Unit`;
+            document.getElementById('kpi-price').textContent = `Bot ${formatCurrency(prices.bot)} · VA ${formatCurrency(prices.va)} · AVA ${formatCurrency(prices.ava)} per Experience Unit`;
             
             const unusedCapacityResults = {};
             if(view === 'selected') {
