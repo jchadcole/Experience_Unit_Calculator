@@ -9,6 +9,21 @@ The project uses [Semantic Versioning](https://semver.org/):
 
 The current version is set in `APP_VERSION` in `index.html` and shown in the app header and footer. Bump it and add an entry here with every release.
 
+## [3.2.0] - 2026-11-10
+
+### Added
+- **Scenarios** button in the header to keep several estimates side by side:
+  - **Save current** stores every input (prices, Voice Mix, Digital Mix, capabilities and the Distribution choice) under a name. Saving with an existing name asks before replacing it.
+  - The saved list shows when each scenario was saved, its Total Experience Units and how many voice and digital interactions it has, with **Load**, **Rename**, **Export** and **Delete** for each one.
+  - Saved scenarios are kept in this browser on this computer (no server or sign-in).
+  - **Export** downloads a scenario as a small `.json` file to keep with customer notes or send to a colleague, and **Import from file** loads it back and adds it to the saved list.
+- The header shows the name of the scenario that is loaded.
+
+### Fixed
+- Interaction names and call lengths that contain quotes or `<` now display correctly in the Voice and Digital Mix tables.
+
+Calculations are unchanged.
+
 ## [3.1.0] - 2026-11-10
 
 ### Added

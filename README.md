@@ -13,6 +13,8 @@ Open `index.html` in a browser (or host it with any static web server such as Gi
 
 Use **Download Summary** in the header to save the current estimate as a PDF report (through the print dialog) or a CSV file.
 
+Use **Scenarios** in the header to save the current inputs under a name and load, rename or delete them later. Saved scenarios stay in the browser you saved them in. To move a scenario to another computer or share it, **Export** it to a `.json` file and use **Import from file** on the other side.
+
 The per-interaction comparison charts show the cost of each AI option side by side.
 
 See `Genesys Experience Unit Calculator User Guide.pdf` for the full guide.

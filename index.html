@@ -271,6 +271,29 @@
         .menu-title { font-size: 0.875rem; font-weight: 600; }
         .menu-sub { font-size: 0.75rem; color: var(--text-muted); }
 
+        /* Scenarios dialog */
+        .dialog {
+            width: min(38rem, calc(100vw - 2rem)); max-height: min(44rem, calc(100vh - 2rem));
+            padding: 0; margin: auto; border: 1px solid var(--border); border-radius: 1rem;
+            background: var(--surface); color: var(--text); box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+        }
+        .dialog::backdrop { background: rgba(10, 14, 22, 0.45); backdrop-filter: blur(2px); }
+        .dialog-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
+        .scenario-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .scenario-item {
+            display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.5rem 0.75rem;
+            padding: 0.7rem 0.85rem; border-radius: 0.75rem; background: var(--surface-2); border: 1px solid transparent;
+        }
+        .scenario-item.is-current { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+        .scenario-name { font-weight: 600; font-size: 0.9rem; word-break: break-word; }
+        .scenario-meta { font-size: 0.75rem; color: var(--text-muted); }
+        .scenario-actions { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+        .btn-sm { padding: 0.35rem 0.65rem; font-size: 0.8rem; border-radius: 0.55rem; }
+        .scenario-status { font-size: 0.8rem; min-height: 1.1rem; color: var(--text-muted); }
+        .scenario-status.error { color: var(--danger); }
+        .scenario-empty { text-align: center; padding: 1.25rem 1rem; color: var(--text-muted); font-size: 0.85rem; border: 1px dashed var(--border); border-radius: 0.75rem; }
+        .current-scenario { color: var(--text); font-weight: 600; }
+
         .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--text-muted); font-size: 0.875rem; padding: 1rem; pointer-events: none; }
     </style>
 </head>
@@ -281,10 +304,14 @@
                 <div class="brand-mark" aria-hidden="true">EU</div>
                 <div class="min-w-0">
                     <h1 class="text-base sm:text-lg font-bold tracking-tight truncate">Genesys Experience Unit Calculator <span class="version-badge app-version align-middle">—</span></h1>
-                    <p class="hidden sm:block text-xs muted -mt-0.5">Estimate the Experience Units a customer will need</p>
+                    <p class="hidden sm:block text-xs muted -mt-0.5">Estimate the Experience Units a customer will need<span id="current-scenario-wrap" hidden> · Scenario: <span id="current-scenario" class="current-scenario"></span></span></p>
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <button id="scenarios-btn" class="btn btn-ghost" type="button" aria-haspopup="dialog" title="Save, load, export and import scenarios">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><path d="M17 21v-8H7v8"/><path d="M7 3v5h8"/></svg>
+                    <span class="hidden sm:inline">Scenarios</span>
+                </button>
                 <div class="menu-wrap">
                     <button id="download-btn" class="btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="download-menu">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
@@ -514,13 +541,51 @@
         </div>
     </main>
 
+    <dialog id="scenarios-dialog" class="dialog" aria-labelledby="scenarios-title">
+        <div class="dialog-body">
+            <div class="flex items-start justify-between gap-3">
+                <div>
+                    <h2 id="scenarios-title" class="card-title">Scenarios</h2>
+                    <p class="card-sub">Save the current inputs under a name and load them again later. Saved scenarios stay in this browser on this computer. Use Export to keep a copy as a file or send it to a colleague.</p>
+                </div>
+                <button id="scenarios-close" class="icon-btn" type="button" aria-label="Close">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+                </button>
+            </div>
+
+            <form id="scenario-save-form" class="flex flex-col sm:flex-row gap-2" autocomplete="off">
+                <label for="scenario-name" class="sr-only">Scenario name</label>
+                <input type="text" id="scenario-name" maxlength="80" placeholder="Name this scenario, e.g. Acme contact center" class="flex-1 min-w-0 px-3 py-2">
+                <button id="scenario-save-btn" class="btn justify-center" type="submit">Save current</button>
+            </form>
+            <p id="scenario-status" class="scenario-status -mt-2" role="status" aria-live="polite"></p>
+
+            <div>
+                <h3 class="section-label mb-2">Saved in this browser</h3>
+                <div id="scenario-list" class="scenario-list"></div>
+            </div>
+
+            <div class="pt-4 border-t flex flex-wrap gap-2" style="border-color: var(--border)">
+                <button id="scenario-export-current" class="btn btn-ghost" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                    Export current to file
+                </button>
+                <button id="scenario-import-btn" class="btn btn-ghost" type="button">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5"/><path d="M12 3v12"/></svg>
+                    Import from file
+                </button>
+                <input type="file" id="scenario-import-file" accept=".json,application/json" hidden>
+            </div>
+        </div>
+    </dialog>
+
     <script>
         // --- VERSION ---
         // Semantic versioning (MAJOR.MINOR.PATCH). Bump with every release and add an entry to CHANGELOG.md.
         //   MAJOR: changes to calculation logic or results
         //   MINOR: new features, inputs or capabilities
         //   PATCH: fixes, wording and styling
-        const APP_VERSION = '3.1.0';
+        const APP_VERSION = '3.2.0';
         const APP_BUILD = '2026-11-10';
         document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
         document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
@@ -877,8 +942,8 @@
 
                 tr.innerHTML = `
                     <td class="text-center"><input type="checkbox" class="bucket-checkbox" data-index="${index}"></td>
-                    <td class="whitespace-nowrap"><input type="text" value="${row.name}" class="w-full" data-index="${index}" data-field="name"></td>
-                    <td class="whitespace-nowrap"><input type="text" value="${row.callLength}" class="w-full" data-index="${index}" data-field="callLength"></td>
+                    <td class="whitespace-nowrap"><input type="text" value="${escapeHtml(row.name)}" class="w-full" data-index="${index}" data-field="name"></td>
+                    <td class="whitespace-nowrap"><input type="text" value="${escapeHtml(row.callLength)}" class="w-full" data-index="${index}" data-field="callLength"></td>
                     <td class="whitespace-nowrap"><input type="number" value="${row.callsThisMonth}" class="w-full" data-index="${index}" data-field="callsThisMonth"></td>
                     <td class="whitespace-nowrap"><input type="number" value="${row.percentAutomated}" class="w-full" data-index="${index}" data-field="percentAutomated"></td>
                     <td class="whitespace-nowrap">
@@ -925,7 +990,7 @@
 
                 tr.innerHTML = `
                     <td class="text-center"><input type="checkbox" class="digital-checkbox" data-index="${index}"></td>
-                    <td class="whitespace-nowrap"><input type="text" value="${row.name}" class="w-full" data-index="${index}" data-field="name"></td>
+                    <td class="whitespace-nowrap"><input type="text" value="${escapeHtml(row.name)}" class="w-full" data-index="${index}" data-field="name"></td>
                     <td class="whitespace-nowrap"><input type="number" value="${row.avgTurns}" class="w-full" data-index="${index}" data-field="avgTurns"></td>
                     <td class="whitespace-nowrap"><input type="number" value="${row.interactions}" class="w-full" data-index="${index}" data-field="interactions"></td>
                     <td class="whitespace-nowrap"><input type="number" value="${row.percentAuto}" class="w-full" data-index="${index}" data-field="percentAuto"></td>
@@ -1209,6 +1274,7 @@
                 renderCallMix();
                 renderDigitalMix();
                 calculateAll();
+                setCurrentScenario('');
                 clearTimeout(resetTimeout);
                 resetAllBtn.textContent = 'Reset All';
                 resetAllBtn.dataset.confirm = 'false';
@@ -1580,6 +1646,389 @@
         });
         window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { syncThemeIcon(); redrawCharts(); });
         syncThemeIcon();
+
+        // --- SAVED SCENARIOS (inputs only; no calculation changes) ---
+        // Named scenarios are kept in this browser's localStorage. A scenario can also be
+        // exported to a small JSON file and imported again on any computer.
+        const SCENARIO_STORE_KEY = 'eu-calc-scenarios';
+        const SCENARIO_FILE_APP = 'Genesys Experience Unit Calculator';
+        const SCENARIO_FORMAT_VERSION = 1;
+        const VOICE_AI_TYPES = ['Voice Bot', 'Virtual Agent', 'Agentic AI'];
+        const DIGITAL_AI_TYPES = ['Digital Bot', 'Virtual Agent', 'Agentic AI'];
+
+        const scenariosBtn = document.getElementById('scenarios-btn');
+        const scenariosDialog = document.getElementById('scenarios-dialog');
+        const scenarioSaveForm = document.getElementById('scenario-save-form');
+        const scenarioNameInput = document.getElementById('scenario-name');
+        const scenarioSaveBtn = document.getElementById('scenario-save-btn');
+        const scenarioStatus = document.getElementById('scenario-status');
+        const scenarioListEl = document.getElementById('scenario-list');
+        const scenarioImportFile = document.getElementById('scenario-import-file');
+        let currentScenarioName = '';
+        let pendingReplaceName = null;
+
+        function setCurrentScenario(name) {
+            currentScenarioName = name || '';
+            document.getElementById('current-scenario').textContent = currentScenarioName;
+            document.getElementById('current-scenario-wrap').hidden = !currentScenarioName;
+        }
+
+        function setScenarioStatus(msg, isError = false) {
+            scenarioStatus.textContent = msg;
+            scenarioStatus.classList.toggle('error', isError);
+        }
+
+        // Returns the saved list, or null when browser storage is unavailable.
+        function readScenarios() {
+            try {
+                const raw = localStorage.getItem(SCENARIO_STORE_KEY);
+                const list = raw ? JSON.parse(raw) : [];
+                return Array.isArray(list) ? list.filter(s => s && typeof s.name === 'string' && s.data && typeof s.data === 'object') : [];
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function writeScenarios(list) {
+            try {
+                localStorage.setItem(SCENARIO_STORE_KEY, JSON.stringify(list));
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        // Snapshot of every input in the calculator.
+        function captureScenarioData() {
+            const prices = {};
+            initialInputs.forEach(i => { prices[i.setting] = inputs[i.setting]; });
+            const insightData = {};
+            for (const key in insights) {
+                insightData[key] = { enabled: insights[key].checkbox.checked, value: insights[key].input.value };
+            }
+            return {
+                prices,
+                voiceMix: callMix.map(r => ({ include: r.include, name: r.name, callLength: r.callLength, callsThisMonth: r.callsThisMonth, percentAutomated: r.percentAutomated, selectedAIType: r.selectedAIType })),
+                digitalMix: digitalMix.map(r => ({ include: r.include, name: r.name, avgTurns: r.avgTurns, interactions: r.interactions, percentAuto: r.percentAuto, selectedAIType: r.selectedAIType })),
+                copilot: { mode: copilotNamed.checked ? 'named' : copilotConcurrent.checked ? 'concurrent' : 'none', users: copilotUsers.value },
+                predictiveEngagement: { enabled: predictiveEngagement.checked, events: predictiveEvents.value },
+                predictiveRouting: { enabled: routingEnable.checked, routes: routingRoutes.value },
+                insights: insightData,
+                distribution: tokenDistributionSelect.value,
+            };
+        }
+
+        // Puts a saved snapshot back into the calculator, cleaning up anything unexpected.
+        function applyScenarioData(d) {
+            d = d && typeof d === 'object' ? d : {};
+            const num = (v, def = 0) => { const n = parseFloat(v); return Number.isFinite(n) ? n : def; };
+            const count = (v) => String(Math.max(0, Math.round(num(v))));
+            const text = (v, def = '') => (v === undefined || v === null ? def : String(v));
+            const prices = d.prices && typeof d.prices === 'object' ? d.prices : {};
+
+            initialInputs.forEach(i => { inputs[i.setting] = Math.max(0, num(prices[i.setting], i.value)); });
+            callMix = (Array.isArray(d.voiceMix) ? d.voiceMix : []).filter(r => r && typeof r === 'object').map(r => ({
+                include: r.include === 0 ? 0 : 1,
+                name: text(r.name),
+                callLength: text(r.callLength, '0:00'),
+                callsThisMonth: num(r.callsThisMonth),
+                percentAutomated: num(r.percentAutomated, DEFAULT_AUTOMATION_PERCENT),
+                selectedAIType: VOICE_AI_TYPES.includes(r.selectedAIType) ? r.selectedAIType : 'Voice Bot',
+            }));
+            digitalMix = (Array.isArray(d.digitalMix) ? d.digitalMix : []).filter(r => r && typeof r === 'object').map(r => ({
+                include: r.include === 0 ? 0 : 1,
+                name: text(r.name),
+                avgTurns: num(r.avgTurns),
+                interactions: num(r.interactions),
+                percentAuto: num(r.percentAuto),
+                selectedAIType: DIGITAL_AI_TYPES.includes(r.selectedAIType) ? r.selectedAIType : 'Digital Bot',
+            }));
+
+            const copilot = d.copilot || {};
+            copilotNamed.checked = copilot.mode === 'named';
+            copilotConcurrent.checked = copilot.mode === 'concurrent';
+            copilotUsers.value = count(copilot.users);
+            const pe = d.predictiveEngagement || {};
+            predictiveEngagement.checked = !!pe.enabled;
+            predictiveEvents.value = count(pe.events);
+            const pr = d.predictiveRouting || {};
+            routingEnable.checked = !!pr.enabled;
+            routingRoutes.value = count(pr.routes);
+            const ins = d.insights && typeof d.insights === 'object' ? d.insights : {};
+            for (const key in insights) {
+                const item = ins[key] || {};
+                insights[key].checkbox.checked = !!item.enabled;
+                insights[key].input.value = count(item.value);
+            }
+
+            const dist = d.distribution === 'lowest_cost' ? 'lowest_cost' : 'selected';
+            tokenDistributionSelect.value = dist;
+            segmentButtons.forEach(b => b.setAttribute('aria-pressed', String(b.dataset.dist === dist)));
+
+            renderInputs();
+            renderCallMix();
+            renderDigitalMix();
+            calculateAll();
+        }
+
+        function makeScenarioRecord(name, data, savedAt) {
+            // Total shown in the saved list, for the Distribution the scenario was saved with.
+            const view = data.distribution === 'lowest_cost' ? 'lowest_cost' : 'selected';
+            const totals = distributionData[view] ? getViewTotals(distributionData[view], getPrices()) : { totalTokens: 0 };
+            return {
+                id: `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+                name, savedAt: savedAt || new Date().toISOString(), appVersion: APP_VERSION,
+                totalEU: totals.totalTokens, totalView: view, data,
+            };
+        }
+
+        function uniqueScenarioName(base, list) {
+            const taken = new Set(list.map(s => s.name.toLowerCase()));
+            if (!taken.has(base.toLowerCase())) return base;
+            let n = 2;
+            while (taken.has(`${base} (${n})`.toLowerCase())) n++;
+            return `${base} (${n})`;
+        }
+
+        const formatSavedAt = (iso) => {
+            const d = new Date(iso);
+            if (isNaN(d)) return '';
+            return d.toLocaleString(undefined, { year: 'numeric', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+        };
+
+        function renderScenarioList() {
+            const list = readScenarios();
+            scenarioListEl.innerHTML = '';
+            if (list === null) {
+                scenarioListEl.innerHTML = '<div class="scenario-empty">This browser is not allowing saved data (for example in a private window). You can still use Export and Import.</div>';
+                return;
+            }
+            if (list.length === 0) {
+                scenarioListEl.innerHTML = '<div class="scenario-empty">No saved scenarios yet. Name the current inputs above and click <strong>Save current</strong>.</div>';
+                return;
+            }
+            list.slice().sort((a, b) => String(b.savedAt).localeCompare(String(a.savedAt))).forEach(s => {
+                const voiceCount = Array.isArray(s.data.voiceMix) ? s.data.voiceMix.length : 0;
+                const digitalCount = Array.isArray(s.data.digitalMix) ? s.data.digitalMix.length : 0;
+                const metaParts = [
+                    formatSavedAt(s.savedAt) && `Saved ${formatSavedAt(s.savedAt)}`,
+                    Number.isFinite(s.totalEU) && `${fmtNum(s.totalEU)} EUs (${DIST_LABELS[s.totalView] || 'Selected'})`,
+                    `${voiceCount} voice, ${digitalCount} digital`,
+                ].filter(Boolean);
+                const item = document.createElement('div');
+                item.className = 'scenario-item' + (s.name === currentScenarioName ? ' is-current' : '');
+                item.dataset.id = s.id;
+                item.innerHTML = `
+                    <div class="min-w-0 flex-1">
+                        <div class="scenario-name">${escapeHtml(s.name)}</div>
+                        <div class="scenario-meta">${escapeHtml(metaParts.join(' · '))}</div>
+                    </div>
+                    <div class="scenario-actions">
+                        <button type="button" class="btn btn-sm" data-act="load">Load</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-act="rename">Rename</button>
+                        <button type="button" class="btn btn-ghost btn-sm" data-act="export">Export</button>
+                        <button type="button" class="btn btn-danger btn-sm" data-act="delete" aria-label="Delete ${escapeHtml(s.name)}">Delete</button>
+                    </div>`;
+                scenarioListEl.appendChild(item);
+            });
+        }
+
+        function startRename(item, scenario) {
+            const nameEl = item.querySelector('.scenario-name');
+            const actions = item.querySelector('.scenario-actions');
+            nameEl.innerHTML = '';
+            const input = document.createElement('input');
+            input.type = 'text';
+            input.maxLength = 80;
+            input.value = scenario.name;
+            input.className = 'w-full px-2 py-1';
+            input.setAttribute('aria-label', 'New scenario name');
+            nameEl.appendChild(input);
+            actions.innerHTML = '<button type="button" class="btn btn-sm" data-act="rename-save">Save name</button><button type="button" class="btn btn-ghost btn-sm" data-act="rename-cancel">Cancel</button>';
+            input.focus();
+            input.select();
+            input.addEventListener('keydown', (ev) => {
+                if (ev.key === 'Enter') { ev.preventDefault(); finishRename(scenario.id, input.value); }
+                if (ev.key === 'Escape') { ev.preventDefault(); ev.stopPropagation(); renderScenarioList(); }
+            });
+        }
+
+        function finishRename(id, rawName) {
+            const name = rawName.trim();
+            const list = readScenarios() || [];
+            const s = list.find(x => x.id === id);
+            if (!s) { renderScenarioList(); return; }
+            if (!name) { setScenarioStatus('Enter a name for the scenario.', true); return; }
+            if (list.some(x => x.id !== id && x.name.toLowerCase() === name.toLowerCase())) {
+                setScenarioStatus(`A scenario named “${name}” already exists. Choose another name.`, true);
+                return;
+            }
+            const oldName = s.name;
+            s.name = name;
+            if (!writeScenarios(list)) { setScenarioStatus('Could not save to this browser.', true); return; }
+            if (currentScenarioName === oldName) setCurrentScenario(name);
+            setScenarioStatus(`Renamed to “${name}”.`);
+            renderScenarioList();
+        }
+
+        function resetSaveButton() {
+            pendingReplaceName = null;
+            scenarioSaveBtn.textContent = 'Save current';
+            scenarioSaveBtn.dataset.confirm = 'false';
+        }
+
+        function saveCurrentScenario() {
+            const name = scenarioNameInput.value.trim();
+            if (!name) { setScenarioStatus('Enter a name for the scenario.', true); scenarioNameInput.focus(); return; }
+            const list = readScenarios();
+            if (list === null) { setScenarioStatus('This browser is not allowing saved data. Use Export current to file instead.', true); return; }
+            const existing = list.find(s => s.name.toLowerCase() === name.toLowerCase());
+            if (existing && pendingReplaceName !== name.toLowerCase()) {
+                pendingReplaceName = name.toLowerCase();
+                scenarioSaveBtn.textContent = 'Replace?';
+                scenarioSaveBtn.dataset.confirm = 'true';
+                setScenarioStatus(`“${existing.name}” is already saved. Click Replace? to overwrite it with the current inputs.`);
+                return;
+            }
+            const record = makeScenarioRecord(existing ? existing.name : name, captureScenarioData());
+            const next = existing ? list.map(s => (s.id === existing.id ? { ...record, id: existing.id } : s)) : [...list, record];
+            if (!writeScenarios(next)) { setScenarioStatus('Could not save to this browser. It may be full or blocking saved data.', true); return; }
+            resetSaveButton();
+            setCurrentScenario(record.name);
+            setScenarioStatus(existing ? `Replaced “${record.name}”.` : `Saved “${record.name}”.`);
+            renderScenarioList();
+        }
+
+        function scenarioFileName(name) {
+            const safe = name.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Scenario';
+            return `${safe} - EU Scenario.json`;
+        }
+
+        function downloadScenarioFile(name, data, savedAt) {
+            const file = {
+                app: SCENARIO_FILE_APP,
+                kind: 'scenario',
+                formatVersion: SCENARIO_FORMAT_VERSION,
+                appVersion: APP_VERSION,
+                name,
+                savedAt: savedAt || new Date().toISOString(),
+                data,
+            };
+            const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = scenarioFileName(name);
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        function importScenarioFile(file) {
+            const reader = new FileReader();
+            reader.onerror = () => setScenarioStatus('Could not read that file.', true);
+            reader.onload = () => {
+                let parsed;
+                try { parsed = JSON.parse(String(reader.result).replace(/^﻿/, '')); } catch (e) {
+                    setScenarioStatus('That file is not a scenario file from this calculator.', true);
+                    return;
+                }
+                if (!parsed || parsed.app !== SCENARIO_FILE_APP || parsed.kind !== 'scenario' || !parsed.data || typeof parsed.data !== 'object') {
+                    setScenarioStatus('That file is not a scenario file from this calculator.', true);
+                    return;
+                }
+                if (Number(parsed.formatVersion) > SCENARIO_FORMAT_VERSION) {
+                    setScenarioStatus('That file was made by a newer version of the calculator. Update this copy and try again.', true);
+                    return;
+                }
+                applyScenarioData(parsed.data);
+                const baseName = (typeof parsed.name === 'string' && parsed.name.trim()) ? parsed.name.trim().slice(0, 80) : file.name.replace(/\.json$/i, '');
+                const list = readScenarios();
+                if (list === null) {
+                    setCurrentScenario(baseName);
+                    setScenarioStatus(`Loaded “${baseName}”. It was not saved because this browser is blocking saved data.`);
+                    return;
+                }
+                const name = uniqueScenarioName(baseName, list);
+                const record = makeScenarioRecord(name, captureScenarioData());
+                if (!writeScenarios([...list, record])) {
+                    setCurrentScenario(baseName);
+                    setScenarioStatus(`Loaded “${baseName}”, but it could not be saved to this browser.`, true);
+                    return;
+                }
+                setCurrentScenario(name);
+                scenarioNameInput.value = name;
+                resetSaveButton();
+                setScenarioStatus(name === baseName ? `Imported and loaded “${name}”.` : `Imported and loaded as “${name}”, because that name was already saved.`);
+                renderScenarioList();
+            };
+            reader.readAsText(file);
+        }
+
+        scenariosBtn.addEventListener('click', () => {
+            resetSaveButton();
+            setScenarioStatus('');
+            scenarioNameInput.value = currentScenarioName;
+            renderScenarioList();
+            if (typeof scenariosDialog.showModal === 'function') scenariosDialog.showModal();
+            else scenariosDialog.setAttribute('open', '');
+            scenarioNameInput.focus();
+        });
+        document.getElementById('scenarios-close').addEventListener('click', () => scenariosDialog.close());
+        scenariosDialog.addEventListener('click', (ev) => { if (ev.target === scenariosDialog) scenariosDialog.close(); });
+        scenarioSaveForm.addEventListener('submit', (ev) => { ev.preventDefault(); saveCurrentScenario(); });
+        scenarioNameInput.addEventListener('input', () => { if (pendingReplaceName) { resetSaveButton(); setScenarioStatus(''); } });
+
+        scenarioListEl.addEventListener('click', (ev) => {
+            const btn = ev.target.closest('[data-act]');
+            if (!btn) return;
+            const item = btn.closest('.scenario-item');
+            const list = readScenarios() || [];
+            const s = list.find(x => x.id === item.dataset.id);
+            if (!s) { renderScenarioList(); return; }
+            const act = btn.dataset.act;
+            if (act === 'load') {
+                applyScenarioData(s.data);
+                setCurrentScenario(s.name);
+                scenarioNameInput.value = s.name;
+                resetSaveButton();
+                setScenarioStatus(`Loaded “${s.name}”.`);
+                renderScenarioList();
+            } else if (act === 'rename') {
+                startRename(item, s);
+            } else if (act === 'rename-save') {
+                finishRename(s.id, item.querySelector('.scenario-name input').value);
+            } else if (act === 'rename-cancel') {
+                renderScenarioList();
+            } else if (act === 'export') {
+                downloadScenarioFile(s.name, s.data, s.savedAt);
+                setScenarioStatus(`Exported “${s.name}”.`);
+            } else if (act === 'delete') {
+                if (btn.dataset.confirm !== 'true') {
+                    btn.dataset.confirm = 'true';
+                    btn.textContent = 'Confirm delete?';
+                    setTimeout(() => { if (btn.isConnected) { btn.dataset.confirm = 'false'; btn.textContent = 'Delete'; } }, 3000);
+                    return;
+                }
+                if (!writeScenarios(list.filter(x => x.id !== s.id))) { setScenarioStatus('Could not update this browser’s saved data.', true); return; }
+                if (currentScenarioName === s.name) setCurrentScenario('');
+                setScenarioStatus(`Deleted “${s.name}”.`);
+                renderScenarioList();
+            }
+        });
+
+        document.getElementById('scenario-export-current').addEventListener('click', () => {
+            const name = scenarioNameInput.value.trim() || currentScenarioName || `Scenario ${todayStamp()}`;
+            downloadScenarioFile(name, captureScenarioData());
+            setScenarioStatus(`Exported the current inputs as “${scenarioFileName(name)}”.`);
+        });
+        document.getElementById('scenario-import-btn').addEventListener('click', () => scenarioImportFile.click());
+        scenarioImportFile.addEventListener('change', () => {
+            const file = scenarioImportFile.files && scenarioImportFile.files[0];
+            if (file) importScenarioFile(file);
+            scenarioImportFile.value = '';
+        });
 
         // --- INITIALIZATION ---
         function initializeApp() {
