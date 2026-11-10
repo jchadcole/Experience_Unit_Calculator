@@ -255,6 +255,22 @@
             transform: translate(-50%, -50%) rotate(45deg);
         }
 
+        /* Download menu */
+        .menu-wrap { position: relative; }
+        .menu {
+            position: absolute; right: 0; top: calc(100% + 0.4rem); z-index: 50; width: 17rem;
+            background: var(--surface); border: 1px solid var(--border); border-radius: 0.85rem;
+            box-shadow: var(--shadow); padding: 0.35rem;
+        }
+        .menu[hidden] { display: none; }
+        .menu button {
+            display: flex; flex-direction: column; align-items: flex-start; gap: 0.1rem; width: 100%;
+            text-align: left; padding: 0.55rem 0.7rem; border-radius: 0.6rem; cursor: pointer; color: var(--text);
+        }
+        .menu button:hover, .menu button:focus-visible { background: var(--surface-2); outline: none; }
+        .menu-title { font-size: 0.875rem; font-weight: 600; }
+        .menu-sub { font-size: 0.75rem; color: var(--text-muted); }
+
         .chart-empty { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; color: var(--text-muted); font-size: 0.875rem; padding: 1rem; pointer-events: none; }
     </style>
 </head>
@@ -269,6 +285,22 @@
                 </div>
             </div>
             <div class="flex items-center gap-2">
+                <div class="menu-wrap">
+                    <button id="download-btn" class="btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="download-menu">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+                        <span class="hidden sm:inline">Download Summary</span>
+                    </button>
+                    <div id="download-menu" class="menu" role="menu" hidden>
+                        <button type="button" role="menuitem" data-download="pdf">
+                            <span class="menu-title">PDF report</span>
+                            <span class="menu-sub">Opens the print dialog. Choose Save as PDF.</span>
+                        </button>
+                        <button type="button" role="menuitem" data-download="csv">
+                            <span class="menu-title">CSV spreadsheet</span>
+                            <span class="menu-sub">Downloads a file for Excel or Google Sheets.</span>
+                        </button>
+                    </div>
+                </div>
                 <button id="user-guide-btn" class="btn btn-ghost" type="button">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
                     <span class="hidden sm:inline">User Guide</span>
@@ -488,7 +520,7 @@
         //   MAJOR: changes to calculation logic or results
         //   MINOR: new features, inputs or capabilities
         //   PATCH: fixes, wording and styling
-        const APP_VERSION = '3.0.0';
+        const APP_VERSION = '3.1.0';
         const APP_BUILD = '2026-11-10';
         document.querySelectorAll('.app-version').forEach(el => { el.textContent = `v${APP_VERSION}`; });
         document.querySelectorAll('.app-build').forEach(el => { el.textContent = APP_BUILD; });
@@ -509,6 +541,18 @@
         function getPrices() {
             const p = (k) => { const v = parseFloat(inputs[k]); return isFinite(v) && v >= 0 ? v : 0; };
             return { bot: p("Bot Price"), va: p("VA Price"), ava: p("AVA Price") };
+        }
+
+        // Totals for one distribution view (used by the results display and the downloadable summary).
+        function getViewTotals(data, prices) {
+            const botTokens = data.tokensVoiceBot + data.tokensDigitalBot;
+            const otherTokens = data.coPilotTokens + data.predictiveTokens + data.routingTokens + data.summaryInsightsTokens + data.scoringTokens + data.translateTokens;
+            const totalTokens = botTokens + data.tokensVirtualAgent + data.tokensAgenticAI + otherTokens;
+            const costBot = botTokens * prices.bot;
+            const costVA = data.tokensVirtualAgent * prices.va;
+            const costAVA = data.tokensAgenticAI * prices.ava;
+            const tokenCost = costBot + costVA + costAVA;
+            return { botTokens, otherTokens, totalTokens, costBot, costVA, costAVA, tokenCost };
         }
 
         const initialCallMix = [];
@@ -726,10 +770,7 @@
 
             const prices = getPrices();
 
-            const botTokens = data.tokensVoiceBot + data.tokensDigitalBot;
-            const otherTokens = data.coPilotTokens + data.predictiveTokens + data.routingTokens + data.summaryInsightsTokens + data.scoringTokens + data.translateTokens;
-            const totalTokens = botTokens + data.tokensVirtualAgent + data.tokensAgenticAI + otherTokens;
-            const tokenCost = botTokens * prices.bot + data.tokensVirtualAgent * prices.va + data.tokensAgenticAI * prices.ava;
+            const { totalTokens, tokenCost } = getViewTotals(data, prices);
 
             const tokensResults = {
                 "Total Experience Units": formatNumber(totalTokens),
@@ -1205,6 +1246,309 @@
             window.open('Genesys Experience Unit Calculator User Guide.pdf', '_blank');
         });
 
+
+        // --- DOWNLOADABLE SUMMARY (reads current results; no calculation changes) ---
+        const DIST_LABELS = { selected: 'Selected', lowest_cost: 'Lowest Cost' };
+
+        const escapeHtml = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const fmtNum = (v) => formatNumber(Number.isFinite(Number(v)) ? Number(v) : 0);
+        const todayStamp = () => {
+            const d = new Date();
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        };
+
+        // Gather everything the summary shows from the app's current state.
+        function buildSummary() {
+            const view = tokenDistributionSelect.value;
+            const data = distributionData[view];
+            const prices = getPrices();
+            const totals = getViewTotals(data, prices);
+            const otherView = view === 'selected' ? 'lowest_cost' : 'selected';
+            const otherTotals = getViewTotals(distributionData[otherView], prices);
+
+            const breakdown = [
+                { type: 'Voice Bot', eu: data.tokensVoiceBot, priceKey: 'Bot', price: prices.bot },
+                { type: 'Digital Bot', eu: data.tokensDigitalBot, priceKey: 'Bot', price: prices.bot },
+                { type: 'Virtual Agent', eu: data.tokensVirtualAgent, priceKey: 'VA', price: prices.va },
+                { type: 'Agentic AI', eu: data.tokensAgenticAI, priceKey: 'AVA', price: prices.ava },
+                { type: 'Copilot', eu: data.coPilotTokens },
+                { type: 'Predictive Engagement', eu: data.predictiveTokens },
+                { type: 'Predictive Routing', eu: data.routingTokens },
+                { type: 'Summary & Insights', eu: data.summaryInsightsTokens },
+                { type: 'Scoring', eu: data.scoringTokens },
+                { type: 'Translate', eu: data.translateTokens },
+            ].map(r => ({ ...r, cost: r.price === undefined ? null : r.eu * r.price }));
+
+            const voice = callMix.map(r => ({ include: r.include === 1, name: r.name, callLength: r.callLength, calls: r.callsThisMonth, pct: r.percentAutomated, ai: r.selectedAIType }));
+            const digital = digitalMix.map(r => ({ include: r.include === 1, name: r.name, turns: r.avgTurns, interactions: r.interactions, pct: r.percentAuto, ai: r.selectedAIType }));
+
+            const copilotMode = copilotNamed.checked ? 'Named' : copilotConcurrent.checked ? 'Concurrent' : null;
+            const capabilities = [
+                { name: 'Copilot', enabled: !!copilotMode, detail: copilotMode ? `${copilotMode}, ${fmtNum(parseInt(copilotUsers.value, 10) || 0)} users` : '' },
+                { name: 'Predictive Engagement', enabled: predictiveEngagement.checked, detail: predictiveEngagement.checked ? `${fmtNum(parseInt(predictiveEvents.value, 10) || 0)} events` : '' },
+                { name: 'Predictive Routing', enabled: routingEnable.checked, detail: routingEnable.checked ? `${fmtNum(parseInt(routingRoutes.value, 10) || 0)} routes` : '' },
+                { name: 'Summary & Insights', enabled: insights.summary_insights.checkbox.checked, detail: insights.summary_insights.checkbox.checked ? `${fmtNum(parseInt(insights.summary_insights.input.value, 10) || 0)} summaries and/or insights` : '' },
+                { name: 'Translate', enabled: insights.translate.checkbox.checked, detail: insights.translate.checkbox.checked ? `${fmtNum(parseInt(insights.translate.input.value, 10) || 0)} translations` : '' },
+                { name: 'Scoring', enabled: insights.scoring.checkbox.checked, detail: insights.scoring.checkbox.checked ? `${fmtNum(parseInt(insights.scoring.input.value, 10) || 0)} evaluations` : '' },
+            ];
+
+            const unused = view === 'selected' ? [
+                ['Voice Bot', 'Minutes', Number(data.spareMinutes.toFixed(2))],
+                ['Virtual Agent', 'Sessions', data.spareSessions],
+                ['Predictive Engagement', 'Events', data.sparePredictive],
+                ['Predictive Routing', 'Routes', data.spareRouting],
+                ['Summary & Insights', 'Summaries and/or Insights', data.spareSummaryInsights],
+                ['Scoring', 'Evaluations', data.spareScoring],
+                ['Translate', 'Translations', data.spareTranslate],
+            ] : [];
+
+            return {
+                generated: new Date(), date: todayStamp(), version: APP_VERSION,
+                view, viewLabel: DIST_LABELS[view], otherViewLabel: DIST_LABELS[otherView],
+                prices, totals, otherTotals, breakdown, voice, digital, capabilities, unused,
+            };
+        }
+
+        function summaryFileName(ext) {
+            return `Experience Unit Estimate ${todayStamp()}.${ext}`;
+        }
+
+        // --- CSV ---
+        function buildSummaryCsv(s) {
+            const rows = [];
+            const add = (...cells) => rows.push(cells);
+            add('Genesys Experience Unit Calculator - Estimate Summary');
+            add('Generated', s.generated.toLocaleString());
+            add('Calculator version', `v${s.version}`);
+            add('Distribution', s.viewLabel);
+            add('All figures are monthly estimates. 1 Experience Unit = 1 token.');
+            add();
+            add('Totals');
+            add('Total Experience Units', s.totals.totalTokens);
+            add('Estimated Cost (USD)', s.totals.tokenCost.toFixed(2));
+            add(`${s.otherViewLabel} distribution: Total Experience Units`, s.otherTotals.totalTokens);
+            add(`${s.otherViewLabel} distribution: Estimated Cost (USD)`, s.otherTotals.tokenCost.toFixed(2));
+            add();
+            add('Prices (USD per Experience Unit)');
+            add('Bot (Voice Bot and Digital Bot)', s.prices.bot);
+            add('VA (Virtual Agent)', s.prices.va);
+            add('AVA (Agentic AI)', s.prices.ava);
+            add();
+            add('Experience Units by AI type');
+            add('AI type', 'Experience Units', 'Price per EU (USD)', 'Estimated Cost (USD)');
+            s.breakdown.forEach(r => add(r.type, r.eu, r.price === undefined ? 'Not priced' : r.price, r.cost === null ? '' : r.cost.toFixed(2)));
+            add('Total', s.totals.totalTokens, '', s.totals.tokenCost.toFixed(2));
+            add();
+            add('Voice Mix');
+            add('Name', 'Call Length (m:ss)', 'Calls / Month', '% Automated', 'Selected AI');
+            s.voice.forEach(r => add(r.name, r.callLength, r.calls, r.pct, r.ai));
+            if (!s.voice.length) add('(none)');
+            add();
+            add('Digital Mix');
+            add('Name', 'Avg # Turns', 'Interactions / Month', '% Automated', 'Selected AI');
+            s.digital.forEach(r => add(r.name, r.turns, r.interactions, r.pct, r.ai));
+            if (!s.digital.length) add('(none)');
+            add();
+            add('Additional capabilities');
+            add('Capability', 'Enabled', 'Details');
+            s.capabilities.forEach(c => add(c.name, c.enabled ? 'Yes' : 'No', c.detail));
+            if (s.unused.length) {
+                add();
+                add('Unused capacity (paid for but not used)');
+                add('Capability', 'Unit', 'Unused');
+                s.unused.forEach(([c, u, v]) => add(c, u, v));
+            }
+            const cell = (v) => {
+                const t = String(v ?? '');
+                // Quote when needed, and stop spreadsheet apps from treating text as a formula.
+                const safe = /^[=+\-@\t\r]/.test(t) && !/^-?\d/.test(t) ? `'${t}` : t;
+                return /[",\n\r]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
+            };
+            return rows.map(r => r.map(cell).join(',')).join('\r\n');
+        }
+
+        function downloadSummaryCsv() {
+            const csv = buildSummaryCsv(buildSummary());
+            const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = summaryFileName('csv');
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
+        // --- PRINTABLE REPORT (Save as PDF) ---
+        function buildSummaryHtml(s) {
+            const e = escapeHtml;
+            const money = (v) => formatCurrency(v);
+            const breakdownRows = s.breakdown.map(r => `
+                <tr class="${r.eu ? '' : 'zero'}">
+                    <td>${e(r.type)}${r.priceKey ? ` <span class="tag">${r.priceKey}</span>` : ''}</td>
+                    <td class="num">${fmtNum(r.eu)}</td>
+                    <td class="num">${r.price === undefined ? '<span class="muted">Not priced</span>' : money(r.price)}</td>
+                    <td class="num">${r.cost === null ? '<span class="muted">—</span>' : money(r.cost)}</td>
+                </tr>`).join('');
+            const voiceRows = s.voice.length ? s.voice.map(r => `
+                <tr class="${r.include ? '' : 'zero'}">
+                    <td>${e(r.name) || '<span class="muted">Unnamed</span>'}</td>
+                    <td class="num">${e(r.callLength)}</td>
+                    <td class="num">${fmtNum(r.calls)}</td>
+                    <td class="num">${fmtNum(r.pct)}%</td>
+                    <td>${e(r.ai)}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="muted">No voice interactions</td></tr>';
+            const digitalRows = s.digital.length ? s.digital.map(r => `
+                <tr class="${r.include ? '' : 'zero'}">
+                    <td>${e(r.name) || '<span class="muted">Unnamed</span>'}</td>
+                    <td class="num">${fmtNum(r.turns)}</td>
+                    <td class="num">${fmtNum(r.interactions)}</td>
+                    <td class="num">${fmtNum(r.pct)}%</td>
+                    <td>${e(r.ai)}</td>
+                </tr>`).join('') : '<tr><td colspan="5" class="muted">No digital interactions</td></tr>';
+            const enabledCaps = s.capabilities.filter(c => c.enabled);
+            const capRows = enabledCaps.length
+                ? enabledCaps.map(c => `<tr><td>${e(c.name)}</td><td>${e(c.detail)}</td></tr>`).join('')
+                : '<tr><td colspan="2" class="muted">None enabled</td></tr>';
+            const unusedBlock = s.unused.length ? `
+                <h2>Unused Capacity</h2>
+                <p class="note">Capacity paid for but not used, for the Selected distribution.</p>
+                <table>
+                    <thead><tr><th>Capability</th><th>Unit</th><th class="num">Unused</th></tr></thead>
+                    <tbody>${s.unused.map(([c, u, v]) => `<tr class="${v >= 1 ? 'warn' : ''}"><td>${e(c)}</td><td>${e(u)}</td><td class="num">${fmtNum(v)}</td></tr>`).join('')}</tbody>
+                </table>` : '';
+
+            return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>${e(summaryFileName('pdf').replace(/\.pdf$/, ''))}</title>
+<style>
+    @page { size: letter; margin: 0.6in; }
+    * { box-sizing: border-box; }
+    body { font-family: Inter, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; color: #111827; font-size: 10.5pt; margin: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    header { display: flex; justify-content: space-between; align-items: flex-end; gap: 1rem; border-bottom: 3px solid #ff4f1f; padding-bottom: 0.6rem; margin-bottom: 1rem; }
+    h1 { font-size: 17pt; margin: 0; letter-spacing: -0.01em; }
+    .sub { color: #6b7280; font-size: 9.5pt; margin-top: 0.15rem; }
+    .meta { text-align: right; color: #6b7280; font-size: 9pt; line-height: 1.5; }
+    h2 { font-size: 11.5pt; margin: 1.3rem 0 0.45rem; }
+    .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; }
+    .kpi { border: 1px solid #e3e6eb; border-radius: 8px; padding: 0.6rem 0.75rem; }
+    .kpi.accent { background: #ff4f1f; border-color: #ff4f1f; color: #fff; }
+    .kpi .label { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; opacity: 0.8; }
+    .kpi .value { font-size: 18pt; font-weight: 700; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
+    .kpi .foot { font-size: 8.5pt; opacity: 0.85; margin-top: 0.1rem; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th { font-size: 8pt; text-transform: uppercase; letter-spacing: 0.05em; color: #6b7280; text-align: left; padding: 0.35rem 0.5rem; border-bottom: 1.5px solid #d1d5db; }
+    td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #eceef2; vertical-align: top; }
+    tfoot td { font-weight: 700; border-top: 1.5px solid #d1d5db; border-bottom: none; }
+    .num { text-align: right; white-space: nowrap; }
+    th.num { text-align: right; }
+    tr.zero td { color: #9ca3af; }
+    tr.warn td { color: #dc2626; font-weight: 600; }
+    .muted { color: #9ca3af; }
+    .tag { display: inline-block; font-size: 7.5pt; font-weight: 600; color: #6b7280; border: 1px solid #e3e6eb; border-radius: 4px; padding: 0 0.3rem; margin-left: 0.25rem; }
+    .note { color: #6b7280; font-size: 9pt; margin: -0.2rem 0 0.4rem; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+    section, table { break-inside: avoid; }
+    footer { margin-top: 1.4rem; padding-top: 0.6rem; border-top: 1px solid #e3e6eb; color: #6b7280; font-size: 8.5pt; }
+</style></head>
+<body>
+    <header>
+        <div>
+            <h1>Experience Unit Estimate</h1>
+            <div class="sub">Genesys Experience Unit Calculator</div>
+        </div>
+        <div class="meta">
+            Generated ${e(s.generated.toLocaleString())}<br>
+            Distribution: <strong>${e(s.viewLabel)}</strong><br>
+            Calculator v${e(s.version)}
+        </div>
+    </header>
+
+    <section class="kpis">
+        <div class="kpi accent"><div class="label">Total Experience Units</div><div class="value">${fmtNum(s.totals.totalTokens)}</div><div class="foot">per month</div></div>
+        <div class="kpi"><div class="label">Estimated Cost</div><div class="value">${money(s.totals.tokenCost)}</div><div class="foot">per month</div></div>
+        <div class="kpi"><div class="label">${e(s.otherViewLabel)} distribution</div><div class="value" style="font-size:13pt">${fmtNum(s.otherTotals.totalTokens)} EU</div><div class="foot">${money(s.otherTotals.tokenCost)} per month</div></div>
+    </section>
+
+    <h2>Experience Units by AI Type</h2>
+    <p class="note">Prices per Experience Unit: Bot ${money(s.prices.bot)} (Voice Bot and Digital Bot) · VA ${money(s.prices.va)} (Virtual Agent) · AVA ${money(s.prices.ava)} (Agentic AI). Other capabilities count toward the total but are not priced.</p>
+    <table>
+        <thead><tr><th>AI type</th><th class="num">Experience Units</th><th class="num">Price per EU</th><th class="num">Estimated Cost</th></tr></thead>
+        <tbody>${breakdownRows}</tbody>
+        <tfoot><tr><td>Total</td><td class="num">${fmtNum(s.totals.totalTokens)}</td><td></td><td class="num">${money(s.totals.tokenCost)}</td></tr></tfoot>
+    </table>
+
+    <h2>Voice Mix</h2>
+    <table>
+        <thead><tr><th>Name</th><th class="num">Call Length</th><th class="num">Calls / Month</th><th class="num">% Automated</th><th>Selected AI</th></tr></thead>
+        <tbody>${voiceRows}</tbody>
+    </table>
+
+    <h2>Digital Mix</h2>
+    <table>
+        <thead><tr><th>Name</th><th class="num">Avg # Turns</th><th class="num">Interactions / Month</th><th class="num">% Automated</th><th>Selected AI</th></tr></thead>
+        <tbody>${digitalRows}</tbody>
+    </table>
+
+    <h2>Additional Capabilities</h2>
+    <table>
+        <thead><tr><th>Capability</th><th>Details</th></tr></thead>
+        <tbody>${capRows}</tbody>
+    </table>
+    ${unusedBlock}
+
+    <footer>All figures are monthly estimates. 1 Experience Unit = 1 token. The ${e(s.viewLabel)} distribution ${s.view === 'selected' ? 'uses the AI selected for each interaction' : 'uses the lowest-cost AI for each interaction at these prices'}.</footer>
+</body></html>`;
+        }
+
+        function printSummaryPdf() {
+            const html = buildSummaryHtml(buildSummary());
+            const old = document.getElementById('summary-print-frame');
+            if (old) old.remove();
+            const frame = document.createElement('iframe');
+            frame.id = 'summary-print-frame';
+            frame.setAttribute('aria-hidden', 'true');
+            frame.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden;';
+            document.body.appendChild(frame);
+            const doc = frame.contentWindow.document;
+            doc.open();
+            doc.write(html);
+            doc.close();
+            // The parent title becomes the suggested PDF file name in some browsers.
+            const prevTitle = document.title;
+            document.title = summaryFileName('pdf').replace(/\.pdf$/, '');
+            const restore = () => { document.title = prevTitle; };
+            setTimeout(() => {
+                try {
+                    frame.contentWindow.focus();
+                    frame.contentWindow.print();
+                } finally {
+                    setTimeout(restore, 1000);
+                }
+            }, 250);
+        }
+
+        // Menu behaviour
+        const downloadBtn = document.getElementById('download-btn');
+        const downloadMenu = document.getElementById('download-menu');
+        const setMenuOpen = (open) => {
+            downloadMenu.hidden = !open;
+            downloadBtn.setAttribute('aria-expanded', String(open));
+            if (open) downloadMenu.querySelector('button').focus();
+        };
+        downloadBtn.addEventListener('click', (ev) => { ev.stopPropagation(); setMenuOpen(downloadMenu.hidden); });
+        downloadMenu.addEventListener('click', (ev) => {
+            const item = ev.target.closest('[data-download]');
+            if (!item) return;
+            setMenuOpen(false);
+            if (item.dataset.download === 'csv') downloadSummaryCsv();
+            else printSummaryPdf();
+        });
+        document.addEventListener('click', (ev) => { if (!downloadMenu.hidden && !ev.target.closest('.menu-wrap')) setMenuOpen(false); });
+        document.addEventListener('keydown', (ev) => {
+            if (ev.key === 'Escape' && !downloadMenu.hidden) { setMenuOpen(false); downloadBtn.focus(); }
+        });
 
         // --- UI CHROME (presentation only) ---
         const segmentButtons = document.querySelectorAll('.segmented [data-dist]');

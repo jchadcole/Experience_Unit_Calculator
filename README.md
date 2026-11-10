@@ -11,6 +11,8 @@ Open `index.html` in a browser (or host it with any static web server such as Gi
 3. **Configuration**: set the price per Experience Unit for Bot, VA (Virtual Agent) and AVA (Agentic AI), and turn on any additional capabilities (Copilot, Predictive Engagement, Predictive Routing, Supervisor Copilot, Virtual Supervisor Copilot).
 4. Read the totals at the top. Switch **Distribution** between *Selected* (the AI you chose for each interaction) and *Lowest Cost* (the cheapest option per interaction). **Unused Capacity** shows what has been paid for but not consumed.
 
+Use **Download Summary** in the header to save the current estimate as a PDF report (through the print dialog) or a CSV file.
+
 The per-interaction comparison charts show the cost of each AI option side by side.
 
 See `Genesys Experience Unit Calculator User Guide.pdf` for the full guide.
