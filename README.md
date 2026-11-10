@@ -8,7 +8,7 @@ Open `index.html` in a browser (or host it with any static web server such as Gi
 
 1. **Voice Mix**: add each voice interaction type with its call length (m:ss), calls per month, % automated and the AI you plan to use (Voice Bot, Virtual Agent or Agentic AI).
 2. **Digital Mix**: add each digital interaction type with its average number of turns, interactions per month, % automated and AI (Digital Bot, Virtual Agent or Agentic AI).
-3. **Configuration**: set the price per Experience Unit and turn on any additional capabilities (Copilot, Predictive Engagement, Predictive Routing, Supervisor Copilot, Virtual Supervisor Copilot, AI Guide Creation).
+3. **Configuration**: set the price per Experience Unit for Bot, VA (Virtual Agent) and AVA (Agentic AI), and turn on any additional capabilities (Copilot, Predictive Engagement, Predictive Routing, Supervisor Copilot, Virtual Supervisor Copilot).
 4. Read the totals at the top. Switch **Distribution** between *Selected* (the AI you chose for each interaction) and *Lowest Cost* (the cheapest option per interaction). **Unused Capacity** shows what has been paid for but not consumed.
 
 The per-interaction comparison charts show the cost of each AI option side by side.
